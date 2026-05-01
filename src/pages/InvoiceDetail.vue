@@ -1,27 +1,35 @@
 <template>
   <div v-if="invoice" class="invoice-container">
-    <!-- Top Buttons -->
-    <div class="flex justify-between gap-4 mb-6 px-4 flex-wrap">
-      <div class="flex gap-4 flex-wrap">
-        <button
-          @click="openImportModal"
-          class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded transition"
-        >
-          Importer des heures
-        </button>
-        <button
-          @click="printInvoice"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition"
-        >
-          Imprimer
-        </button>
-        <button
-          @click="sendInvoice"
-          class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded transition"
-        >
-          Envoyer
-        </button>
-      </div>
+    <!-- Top Buttons with Icons -->
+    <div class="flex justify-center gap-4 mb-6 px-4 flex-wrap">
+      <button
+        @click="openImportModal"
+        title="Importer des heures"
+        class="flex items-center justify-center text-gray-700 hover:text-gray-900 transition"
+      >
+        <Download :size="24" />
+      </button>
+      <button
+        @click="openCustomItemModal"
+        title="Ajouter un article"
+        class="flex items-center justify-center text-gray-700 hover:text-gray-900 transition"
+      >
+        <Plus :size="24" />
+      </button>
+      <button
+        @click="printInvoice"
+        title="Imprimer"
+        class="flex items-center justify-center text-gray-700 hover:text-gray-900 transition"
+      >
+        <Printer :size="24" />
+      </button>
+      <button
+        @click="sendInvoice"
+        title="Envoyer"
+        class="flex items-center justify-center text-gray-700 hover:text-gray-900 transition"
+      >
+        <Send :size="24" />
+      </button>
     </div>
 
     <!-- Printable Invoice -->
@@ -61,7 +69,7 @@
           <h3 class="text-sm font-bold text-gray-700 uppercase mb-2">
             Facturer à
           </h3>
-          
+
           <!-- Client Dropdown -->
           <div class="print-only">
             <p class="text-gray-900 font-semibold">
@@ -80,7 +88,7 @@
               </option>
             </select>
           </div>
-          
+
           <!-- Project Dropdown -->
           <div class="print-only" v-if="project?.name">
             <p class="text-gray-700 text-sm mt-2">
@@ -100,7 +108,7 @@
               </option>
             </select>
           </div>
-          
+
           <!-- Contact Dropdown -->
           <div class="print-only" v-if="contact?.name">
             <p class="text-gray-700 text-sm">
@@ -120,7 +128,7 @@
               </option>
             </select>
           </div>
-          
+
           <!-- Client Details (Print only) -->
           <div class="print-only">
             <p v-if="client?.email" class="text-gray-600 text-sm mt-2">
@@ -133,7 +141,8 @@
               {{ client.address }}
             </p>
             <p v-if="client?.city" class="text-gray-600 text-sm">
-              {{ client.city }}{{ client.province ? ", " + client.province : "" }}
+              {{ client.city
+              }}{{ client.province ? ", " + client.province : "" }}
               {{ client.postal_code || "" }}
             </p>
           </div>
@@ -143,235 +152,504 @@
       <!-- Import Modal -->
       <div
         v-if="showImportModal"
-          class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          @click.self="closeImportModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        @click.self="closeImportModal"
+      >
+        <div
+          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl max-h-96 overflow-y-auto"
         >
-          <div
-            class="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl max-h-96 overflow-y-auto"
-          >
-            <h3 class="text-2xl font-bold mb-6 text-gray-900">
-              Importer des heures
-            </h3>
+          <h3 class="text-2xl font-bold mb-6 text-gray-900">
+            Importer des heures
+          </h3>
 
-            <div class="space-y-4">
-              <!-- Date Range -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-gray-700 font-bold mb-2"
-                    >Date de début</label
-                  >
-                  <input
-                    v-model="importForm.startDate"
-                    type="date"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-                <div>
-                  <label class="block text-gray-700 font-bold mb-2"
-                    >Date de fin</label
-                  >
-                  <input
-                    v-model="importForm.endDate"
-                    type="date"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              </div>
-
-              <!-- Import All Checkbox -->
-              <div class="flex items-center gap-2">
-                <input
-                  id="importAll"
-                  v-model="importForm.importAll"
-                  type="checkbox"
-                  class="rounded border-gray-300"
-                />
-                <label for="importAll" class="text-gray-700 font-semibold">
-                  Importer toutes les heures (ignorer la plage de dates)
-                </label>
-              </div>
-
-              <!-- Filter Checkbox -->
-              <div class="flex items-center gap-2">
-                <input
-                  id="excludeInvoiced"
-                  v-model="importForm.excludeInvoiced"
-                  type="checkbox"
-                  checked
-                  class="rounded border-gray-300"
-                />
-                <label
-                  for="excludeInvoiced"
-                  class="text-gray-700 font-semibold"
+          <div class="space-y-4">
+            <!-- Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-gray-700 font-bold mb-2"
+                  >Date de début</label
                 >
-                  Exclure les heures déjà facturées
-                </label>
+                <input
+                  v-model="importForm.startDate"
+                  type="date"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                />
               </div>
-
-              <!-- Available Entries Preview -->
-              <div
-                v-if="availableTimeEntries.length > 0"
-                class="bg-gray-50 p-4 rounded max-h-40 overflow-y-auto"
-              >
-                <p class="font-semibold text-gray-900 mb-3">
-                  {{ availableTimeEntries.length }} entrée(s) disponible(s)
-                </p>
-                <div class="space-y-2">
-                  <div
-                    v-for="entry in availableTimeEntries"
-                    :key="entry.id"
-                    class="text-sm text-gray-700 pb-2 border-b border-gray-200"
-                  >
-                    <strong>{{ formatDate(entry.date) }}</strong> -
-                    {{ getServiceName(entry.service_id) || "Sans service" }} -
-                    <strong>{{ entry.hours }}h</strong>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="bg-yellow-50 p-4 rounded text-yellow-800">
-                Aucune entrée de temps disponible pour cette plage de dates.
+              <div>
+                <label class="block text-gray-700 font-bold mb-2"
+                  >Date de fin</label
+                >
+                <input
+                  v-model="importForm.endDate"
+                  type="date"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                />
               </div>
             </div>
 
+            <!-- Import All Checkbox -->
+            <div class="flex items-center gap-2">
+              <input
+                id="importAll"
+                v-model="importForm.importAll"
+                type="checkbox"
+                class="rounded border-gray-300"
+              />
+              <label for="importAll" class="text-gray-700 font-semibold">
+                Importer toutes les heures (ignorer la plage de dates)
+              </label>
+            </div>
+
+            <!-- Filter Checkbox -->
+            <div class="flex items-center gap-2">
+              <input
+                id="excludeInvoiced"
+                v-model="importForm.excludeInvoiced"
+                type="checkbox"
+                checked
+                class="rounded border-gray-300"
+              />
+              <label for="excludeInvoiced" class="text-gray-700 font-semibold">
+                Exclure les heures déjà facturées
+              </label>
+            </div>
+
+            <!-- Available Entries Preview -->
+            <div
+              v-if="availableTimeEntries.length > 0"
+              class="bg-gray-50 p-4 rounded max-h-40 overflow-y-auto"
+            >
+              <p class="font-semibold text-gray-900 mb-3">
+                {{ availableTimeEntries.length }} entrée(s) disponible(s)
+              </p>
+              <div class="space-y-2">
+                <div
+                  v-for="entry in availableTimeEntries"
+                  :key="entry.id"
+                  class="text-sm text-gray-700 pb-2 border-b border-gray-200"
+                >
+                  <strong>{{ formatDate(entry.date) }}</strong> -
+                  {{ getServiceName(entry.service_id) || "Sans service" }} -
+                  <strong>{{ entry.hours }}h</strong>
+                </div>
+              </div>
+            </div>
+            <div v-else class="bg-yellow-50 p-4 rounded text-yellow-800">
+              Aucune entrée de temps disponible pour cette plage de dates.
+            </div>
+          </div>
+
+          <div class="flex gap-4 mt-6">
+            <button
+              @click="importTimeEntries"
+              :disabled="availableTimeEntries.length === 0"
+              class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
+            >
+              Ajouter à la facture
+            </button>
+            <button
+              @click="closeImportModal"
+              class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Item Modal -->
+      <div
+        v-if="showEditItemModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        @click.self="closeEditModal"
+      >
+        <div
+          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md max-h-96 overflow-y-auto"
+        >
+          <h3 class="text-2xl font-bold mb-6 text-gray-900">
+            Modifier l'article
+          </h3>
+
+          <form @submit.prevent="updateInvoiceItem" class="space-y-4">
+            <!-- Service Dropdown -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">Service</label>
+              <select
+                v-model="editItemForm.service_id"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+              >
+                <option value="">-- Sélectionner ou laisser vide --</option>
+                <option
+                  v-for="service in serviceStore.services"
+                  :key="service.id"
+                  :value="service.id"
+                >
+                  {{ service.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Description -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2"
+                >Description</label
+              >
+              <textarea
+                v-model="editItemForm.description"
+                placeholder="Décrivez l'article..."
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                rows="3"
+                required
+              ></textarea>
+            </div>
+
+            <!-- Quantity -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">Quantité</label>
+              <input
+                v-model.number="editItemForm.quantity"
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="1"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                required
+              />
+            </div>
+
+            <!-- Unit Price -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2"
+                >Prix unitaire ($)</label
+              >
+              <input
+                v-model.number="editItemForm.unit_price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                required
+              />
+            </div>
+
+            <!-- Subtotal Display -->
+            <div class="bg-blue-50 p-3 rounded">
+              <p class="text-sm text-gray-600">Sous-total:</p>
+              <p class="text-lg font-bold text-blue-600">
+                ${{
+                  (editItemForm.quantity * editItemForm.unit_price).toFixed(2)
+                }}
+              </p>
+            </div>
+
+            <!-- Exempt Tax Checkbox -->
+            <div class="flex items-center gap-2">
+              <input
+                id="editExemptTax"
+                v-model="editItemForm.exempt_tax"
+                type="checkbox"
+                class="rounded border-gray-300"
+              />
+              <label for="editExemptTax" class="text-gray-700 font-semibold">
+                Exemptée de taxe
+              </label>
+            </div>
+
+            <!-- Form Buttons -->
             <div class="flex gap-4 mt-6">
               <button
-                @click="importTimeEntries"
-                :disabled="availableTimeEntries.length === 0"
-                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
+                type="submit"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
               >
-                Ajouter à la facture
+                Enregistrer les modifications
               </button>
               <button
-                @click="closeImportModal"
+                type="button"
+                @click="closeEditModal"
                 class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
               >
                 Annuler
               </button>
             </div>
-          </div>
+          </form>
         </div>
+      </div>
+
+      <!-- Custom Item Modal -->
+      <div
+        v-if="showCustomItemModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        @click.self="closeCustomItemModal"
+      >
+        <div
+          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md max-h-96 overflow-y-auto"
+        >
+          <h3 class="text-2xl font-bold mb-6 text-gray-900">
+            Ajouter un article personnalisé
+          </h3>
+
+          <form @submit.prevent="addCustomItem" class="space-y-4">
+            <!-- Service Dropdown -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">Service</label>
+              <select
+                v-model="customItemForm.service_id"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+              >
+                <option value="">-- Sélectionner ou laisser vide --</option>
+                <option
+                  v-for="service in serviceStore.services"
+                  :key="service.id"
+                  :value="service.id"
+                >
+                  {{ service.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Description -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2"
+                >Description</label
+              >
+              <textarea
+                v-model="customItemForm.description"
+                placeholder="Décrivez l'article..."
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+                rows="3"
+                required
+              ></textarea>
+            </div>
+
+            <!-- Quantity -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2">Quantité</label>
+              <input
+                v-model.number="customItemForm.quantity"
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="1"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+                required
+              />
+            </div>
+
+            <!-- Unit Price -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2"
+                >Prix unitaire ($)</label
+              >
+              <input
+                v-model.number="customItemForm.unit_price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+                required
+              />
+            </div>
+
+            <!-- Subtotal Display -->
+            <div class="bg-orange-50 p-3 rounded">
+              <p class="text-sm text-gray-600">Sous-total:</p>
+              <p class="text-lg font-bold text-orange-600">
+                ${{
+                  (customItemForm.quantity * customItemForm.unit_price).toFixed(
+                    2,
+                  )
+                }}
+              </p>
+            </div>
+
+            <!-- Exempt Tax Checkbox -->
+            <div class="flex items-center gap-2">
+              <input
+                id="customExemptTax"
+                v-model="customItemForm.exempt_tax"
+                type="checkbox"
+                class="rounded border-gray-300"
+              />
+              <label for="customExemptTax" class="text-gray-700 font-semibold">
+                Exempté de taxe
+              </label>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="flex gap-4 mt-6">
+              <button
+                type="submit"
+                class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded transition"
+              >
+                Ajouter l'article
+              </button>
+              <button
+                type="button"
+                @click="closeCustomItemModal"
+                class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
+              >
+                Annuler
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
 
       <!-- Items Table -->
       <div class="mb-12">
         <table class="w-full border-collapse">
-            <thead>
-              <tr class="bg-green-200 border-b-2 border-green-300">
-                <th class="text-left py-3 px-4 font-bold text-gray-900">
-                  Description
-                </th>
-                <th class="text-right py-3 px-4 font-bold text-gray-900">
-                  Quantité
-                </th>
-                <th class="text-right py-3 px-4 font-bold text-gray-900">
-                  Prix unitaire
-                </th>
-                <th class="text-right py-3 px-4 font-bold text-gray-900">
-                  Sous-total
-                </th>
-                <th class="text-center py-3 px-4 font-bold text-gray-900">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <template
-                v-for="(items, service) in itemsGroupedByService"
-                :key="service"
+          <thead>
+            <tr class="bg-green-200 border-b-2 border-green-300">
+              <th class="text-left py-3 px-4 font-bold text-gray-900">
+                Description
+              </th>
+              <th class="text-right py-3 px-4 font-bold text-gray-900">
+                Quantité
+              </th>
+              <th class="text-right py-3 px-4 font-bold text-gray-900">
+                Prix unitaire
+              </th>
+              <th class="text-center py-3 px-4 font-bold text-gray-900">
+                Taxes
+              </th>
+              <th class="text-right py-3 px-4 font-bold text-gray-900">
+                Sous-total
+              </th>
+              <th class="text-center py-3 px-4 font-bold text-gray-900">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <template
+              v-for="(items, service) in itemsGroupedByService"
+              :key="service"
+            >
+              <!-- Service Items -->
+              <tr
+                v-for="(item, index) in items"
+                :key="index"
+                @click="openEditModal(item)"
+                class="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition"
               >
-                <!-- Service Items -->
-                <tr
-                  v-for="(item, index) in items"
-                  :key="index"
-                  class="border-b border-gray-200 hover:bg-gray-50"
-                >
-                  <td class="py-3 px-4 text-gray-900">
-                    <p class="font-semibold">{{ getItemDisplay(item).serviceName }}</p>
-                    <p v-if="getItemDisplay(item).description" class="text-sm text-gray-600 mt-1">
-                      {{ getItemDisplay(item).description }}
-                    </p>
-                  </td>
-                  <td class="py-3 px-4 text-right text-gray-900">
-                    {{ item.quantity.toFixed(2) }}
-                  </td>
-                  <td class="py-3 px-4 text-right text-gray-900">
-                    ${{ item.unit_price.toFixed(2) }}
-                  </td>
-                  <td class="py-3 px-4 text-right text-gray-900">
-                    ${{ item.subtotal.toFixed(2) }}
-                  </td>
-                  <td class="py-3 px-4 text-center">
-                    <button
-                      @click="deleteInvoiceItem(item.id)"
-                      class="text-red-600 hover:text-red-800 transition"
-                      title="Supprimer cet article"
-                    >
-                      <X size="20" />
-                    </button>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-            <tfoot>
-              <!-- Subtotal Row -->
-              <tr class="bg-gray-50 border-t-2 border-gray-300">
-                <td
-                  colspan="3"
-                  class="text-right font-bold text-gray-900 py-3 px-4"
-                >
-                  Sous-total:
+                <td class="py-3 px-4 text-gray-900">
+                  <p
+                    v-if="getItemDisplay(item).serviceName"
+                    class="font-semibold"
+                  >
+                    {{ getItemDisplay(item).serviceName }}
+                  </p>
+                  <p
+                    v-if="getItemDisplay(item).description"
+                    class="text-sm text-gray-600 mt-1"
+                  >
+                    {{ getItemDisplay(item).description }}
+                  </p>
                 </td>
-                <td class="text-right font-bold text-gray-900 py-3 px-4">
-                  ${{ subtotal.toFixed(2) }}
+                <td class="py-3 px-4 text-right text-gray-900">
+                  {{ item.quantity.toFixed(2) }}
                 </td>
-                <td></td>
+                <td class="py-3 px-4 text-right text-gray-900">
+                  ${{ item.unit_price.toFixed(2) }}
+                </td>
+                <td class="py-3 px-4 text-center">
+                  <span
+                    v-if="!item.exempt_tax"
+                    class="text-sm font-semibold text-green-600"
+                  >
+                    Tx incl.
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-right text-gray-900">
+                  ${{ item.subtotal.toFixed(2) }}
+                </td>
+                <td class="py-3 px-4 text-center">
+                  <button
+                    @click.stop="deleteInvoiceItem(item.id)"
+                    class="text-red-600 hover:text-red-800 transition"
+                    title="Supprimer cet article"
+                  >
+                    <X :size="20" />
+                  </button>
+                </td>
               </tr>
+            </template>
+          </tbody>
+          <tfoot>
+            <!-- Taxable Subtotal Row -->
+            <tr class="bg-gray-50 border-t-2 border-gray-300">
+              <td
+                colspan="4"
+                class="text-right font-bold text-gray-900 py-3 px-4"
+              >
+                Sous-total (articles taxables):
+              </td>
+              <td class="text-right font-bold text-gray-900 py-3 px-4">
+                ${{ taxableSubtotal.toFixed(2) }}
+              </td>
+              <td></td>
+            </tr>
 
-              <!-- TPS Row -->
-              <tr class="border-b border-gray-200">
-                <td
-                  colspan="3"
-                  class="text-right font-semibold text-gray-900 py-3 px-4"
-                >
-                  TPS (5%)
-                </td>
-                <td class="text-right text-gray-900 py-3 px-4">
-                  ${{ tpsAmount.toFixed(2) }}
-                </td>
-                <td></td>
-              </tr>
+            <!-- TPS Row -->
+            <tr class="border-b border-gray-200">
+              <td
+                colspan="4"
+                class="text-right font-semibold text-gray-900 py-3 px-4"
+              >
+                TPS (5%)
+              </td>
+              <td class="text-right text-gray-900 py-3 px-4">
+                ${{ tpsAmount.toFixed(2) }}
+              </td>
+              <td></td>
+            </tr>
 
-              <!-- TVQ Row -->
-              <tr class="border-b border-gray-200">
-                <td
-                  colspan="3"
-                  class="text-right font-semibold text-gray-900 py-3 px-4"
-                >
-                  TVQ (9.975%)
-                </td>
-                <td class="text-right text-gray-900 py-3 px-4">
-                  ${{ tvqAmount.toFixed(2) }}
-                </td>
-                <td></td>
-              </tr>
+            <!-- TVQ Row -->
+            <tr class="border-b border-gray-200">
+              <td
+                colspan="4"
+                class="text-right font-semibold text-gray-900 py-3 px-4"
+              >
+                TVQ (9.975%)
+              </td>
+              <td class="text-right text-gray-900 py-3 px-4">
+                ${{ tvqAmount.toFixed(2) }}
+              </td>
+              <td></td>
+            </tr>
 
-              <!-- Grand Total Row -->
-              <tr class="bg-green-100 border-t-2 border-green-300">
-                <td
-                  colspan="3"
-                  class="text-right text-lg font-bold text-gray-900 py-3 px-4"
-                >
-                  TOTAL:
-                </td>
-                <td
-                  class="text-right text-lg font-bold text-gray-900 py-3 px-4"
-                >
-                  ${{ grandTotal.toFixed(2) }}
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+            <!-- Tax-Exempt Subtotal Row -->
+            <tr v-if="taxExemptSubtotal > 0" class="border-b border-gray-200">
+              <td
+                colspan="4"
+                class="text-right font-bold text-gray-900 py-3 px-4"
+              >
+                Sous-total (articles exonérés):
+              </td>
+              <td class="text-right font-bold text-gray-900 py-3 px-4">
+                ${{ taxExemptSubtotal.toFixed(2) }}
+              </td>
+              <td></td>
+            </tr>
+
+            <!-- Grand Total Row -->
+            <tr class="bg-green-100 border-t-2 border-green-300">
+              <td
+                colspan="4"
+                class="text-right text-lg font-bold text-gray-900 py-3 px-4"
+              >
+                TOTAL:
+              </td>
+              <td class="text-right text-lg font-bold text-gray-900 py-3 px-4">
+                ${{ grandTotal.toFixed(2) }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
       <!-- Footer -->
       <div class="border-t pt-8 text-center text-gray-600 text-sm">
         <p>Merci de votre confiance!</p>
@@ -383,7 +661,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { X } from "lucide-vue-next";
+import { X, Download, Plus, Printer, Send } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
 import { useClientStore } from "../stores/clientStore";
 import { useContactStore } from "../stores/contactStore";
@@ -414,6 +692,28 @@ const importForm = ref({
   importAll: false,
   excludeInvoiced: true,
 });
+
+// Custom Item Modal refs
+const showCustomItemModal = ref(false);
+const customItemForm = ref({
+  service_id: "",
+  description: "",
+  quantity: 1,
+  unit_price: 0,
+  exempt_tax: false,
+});
+
+// Edit Item Modal refs
+const showEditItemModal = ref(false);
+const editingItemId = ref<string | null>(null);
+const editItemForm = ref({
+  service_id: "",
+  description: "",
+  quantity: 1,
+  unit_price: 0,
+  exempt_tax: false,
+});
+
 const project = computed(() => {
   if (!invoice.value) return null;
   return projectStore.getProjectById(invoice.value.project_id);
@@ -455,12 +755,24 @@ const subtotal = computed(() => {
   return invoiceItems.value.reduce((sum, item) => sum + item.subtotal, 0);
 });
 
+const taxableSubtotal = computed(() => {
+  return invoiceItems.value
+    .filter((item) => !item.exempt_tax)
+    .reduce((sum, item) => sum + item.subtotal, 0);
+});
+
+const taxExemptSubtotal = computed(() => {
+  return invoiceItems.value
+    .filter((item) => item.exempt_tax)
+    .reduce((sum, item) => sum + item.subtotal, 0);
+});
+
 const tpsAmount = computed(() => {
-  return subtotal.value * 0.05; // 5% TPS
+  return taxableSubtotal.value * 0.05; // 5% TPS
 });
 
 const tvqAmount = computed(() => {
-  return subtotal.value * 0.09975; // 9.975% TVQ
+  return taxableSubtotal.value * 0.09975; // 9.975% TVQ
 });
 
 const grandTotal = computed(() => {
@@ -572,10 +884,6 @@ const printInvoice = () => {
   window.print();
 };
 
-const closeInvoice = () => {
-  router.push("/invoices");
-};
-
 const saveInvoiceAssignment = async () => {
   if (!selectedProjectId.value || !invoice.value) return;
 
@@ -634,16 +942,133 @@ const closeImportModal = () => {
   showImportModal.value = false;
 };
 
-const getServiceName = (serviceId: string | null): string | null => {
+// Custom Item Modal functions
+const openCustomItemModal = () => {
+  // Reset form
+  customItemForm.value = {
+    service_id: "",
+    description: "",
+    quantity: 1,
+    unit_price: 0,
+    exempt_tax: false,
+  };
+  showCustomItemModal.value = true;
+};
+
+const closeCustomItemModal = () => {
+  showCustomItemModal.value = false;
+};
+
+// Edit Item Modal functions
+const openEditModal = (item: InvoiceItem) => {
+  editingItemId.value = item.id;
+  editItemForm.value = {
+    service_id: item.service_id || "",
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    exempt_tax: item.exempt_tax || false,
+  };
+  showEditItemModal.value = true;
+};
+
+const closeEditModal = () => {
+  showEditItemModal.value = false;
+  editingItemId.value = null;
+};
+
+const updateInvoiceItem = async () => {
+  if (!editingItemId.value || !editItemForm.value.description) {
+    alert("Veuillez remplir tous les champs requis");
+    return;
+  }
+
+  try {
+    const subtotal =
+      editItemForm.value.quantity * editItemForm.value.unit_price;
+
+    const updateData = {
+      service_id: editItemForm.value.service_id || null,
+      description: editItemForm.value.description,
+      quantity: editItemForm.value.quantity,
+      unit_price: editItemForm.value.unit_price,
+      subtotal: subtotal,
+      line_total: subtotal,
+      exempt_tax: editItemForm.value.exempt_tax,
+    };
+
+    // Update in database
+    await SupabaseService.updateInvoiceItem(editingItemId.value, updateData);
+
+    // Update in local state
+    const itemIndex = invoiceItems.value.findIndex(
+      (item) => item.id === editingItemId.value,
+    );
+    if (itemIndex !== -1) {
+      invoiceItems.value[itemIndex] = {
+        ...invoiceItems.value[itemIndex],
+        ...updateData,
+      };
+    }
+
+    alert("Article modifié avec succès!");
+    closeEditModal();
+  } catch (error) {
+    console.error("Erreur lors de la modification:", error);
+    alert("Erreur lors de la modification de l'article");
+  }
+};
+
+const addCustomItem = async () => {
+  if (!invoice.value || !customItemForm.value.description) {
+    alert("Veuillez remplir tous les champs requis");
+    return;
+  }
+
+  try {
+    const subtotal =
+      customItemForm.value.quantity * customItemForm.value.unit_price;
+
+    const itemData = {
+      invoice_id: invoice.value.id,
+      time_entry_id: null,
+      description: customItemForm.value.description,
+      quantity: customItemForm.value.quantity,
+      unit_price: customItemForm.value.unit_price,
+      subtotal: subtotal,
+      service_id: customItemForm.value.service_id || null,
+      tax_1_amount: 0,
+      tax_2_amount: 0,
+      discount_amount: 0,
+      line_total: subtotal,
+      exempt_tax: customItemForm.value.exempt_tax,
+    };
+
+    // Save to database
+    const savedItem = await SupabaseService.createInvoiceItem(itemData);
+    invoiceItems.value.push(savedItem);
+
+    alert("Article ajouté avec succès!");
+    closeCustomItemModal();
+  } catch (error) {
+    console.error("Erreur lors de l'ajout de l'article:", error);
+    alert("Erreur lors de l'ajout de l'article");
+  }
+};
+
+const getServiceName = (
+  serviceId: string | null | undefined,
+): string | null => {
   if (!serviceId) return null;
   const service = serviceStore.services.find((s) => s.id === serviceId);
   return service ? service.name : null;
 };
 
 const getItemDisplay = (item: InvoiceItem) => {
-  const serviceName = getServiceName(item.service_id) || "Service";
+  const serviceName = getServiceName(item.service_id) || null;
   // If description is different from service name, it's a custom description
-  const hasCustomDescription = item.description && item.description !== serviceName;
+  const hasCustomDescription =
+    item.description && item.description !== serviceName;
   return {
     serviceName,
     description: hasCustomDescription ? item.description : null,
@@ -664,11 +1089,13 @@ const importTimeEntries = async () => {
       const subtotal = entry.hours * hourlyRate;
 
       // Create item without id - let Supabase generate it
-      const serviceName = getServiceName(freshEntry?.service_id || entry.service_id) || "Service";
+      const serviceName =
+        getServiceName(freshEntry?.service_id || entry.service_id) || "Service";
       const itemData = {
         invoice_id: invoice.value.id,
         time_entry_id: entry.id || null,
-        description: freshEntry?.description || entry.description || serviceName,
+        description:
+          freshEntry?.description || entry.description || serviceName,
         quantity: entry.hours,
         unit_price: hourlyRate,
         subtotal: subtotal,
@@ -759,12 +1186,16 @@ const sendInvoice = async () => {
     padding: 0;
   }
 
+  #app > header {
+    display: none !important;
+  }
+
   @page {
     size: letter;
     margin: 0.5in;
   }
 
-  /* Hide all buttons and top menu */
+  /* Hide all buttons */
   button {
     display: none !important;
   }

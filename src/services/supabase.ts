@@ -323,6 +323,21 @@ export class SupabaseService {
       .eq("id", itemId);
     if (error) throw error;
   }
+
+  static async updateInvoiceItem(
+    itemId: string,
+    updates: Partial<InvoiceItem>,
+  ): Promise<InvoiceItem> {
+    const { data, error } = await supabase
+      .from("zoro_invoice_items")
+      .update(updates)
+      .eq("id", itemId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   // Project steps operations
   static async getProjectSteps(projectId: string): Promise<ProjectStep[]> {
     const { data, error } = await supabase

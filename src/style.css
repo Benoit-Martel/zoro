@@ -31,3 +31,9 @@ textarea:focus,
 select:focus {
   @apply ring-2 ring-blue-500 ring-opacity-50;
 }
+
+@media print {
+  header {
+    display: none !important;
+  }
+}

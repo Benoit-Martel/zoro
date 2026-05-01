@@ -1,25 +1,5 @@
 <template>
   <div class="max-w-7xl mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-8">
-      <h2 class="text-2xl font-bold text-gray-900">Factures</h2>
-      <button
-        @click="openInvoiceModal"
-        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition"
-      >
-        Nouvelle facture
-      </button>
-    </div>
-
-    <!-- Invoice Filter -->
-    <div class="mb-6">
-      <input
-        v-model="invoiceFilter"
-        type="text"
-        placeholder="Filtrer par numéro de facture ou projet..."
-        class="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-      />
-    </div>
-
     <!-- Invoice Generator Modal -->
     <div
       v-if="showInvoiceModal"
@@ -190,8 +170,24 @@
 
     <!-- Saved Invoices -->
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="px-6 py-4 bg-gray-100 border-b border-gray-200">
-        <h3 class="font-bold text-gray-900">Factures enregistrées</h3>
+      <div
+        class="px-6 py-4 bg-gray-100 flex justify-between items-center gap-4"
+      >
+        <!-- Invoice Filter -->
+
+        <input
+          v-model="invoiceFilter"
+          type="text"
+          placeholder="Filtrer par numéro de facture ou projet..."
+          class="flex-1 w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+        />
+
+        <button
+          @click="openInvoiceModal"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition"
+        >
+          Nouvelle facture
+        </button>
       </div>
       <table class="w-full">
         <thead class="bg-gray-50">
@@ -200,7 +196,7 @@
               @click="toggleSort('invoice_number')"
               class="px-6 py-3 text-left text-gray-900 font-bold cursor-pointer hover:bg-gray-100 transition select-none"
             >
-              Numéro de facture
+              Numéro
               <span class="ml-2 text-sm font-normal text-gray-500">{{
                 getSortIndicator("invoice_number")
               }}</span>

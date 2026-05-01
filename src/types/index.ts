@@ -66,7 +66,7 @@ export interface TimeEntry {
 export interface InvoiceItem {
   id: string;
   invoice_id: string;
-  time_entry_id?: string;
+  time_entry_id?: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -78,6 +78,7 @@ export interface InvoiceItem {
   tax_2_amount: number;
   discount_amount: number;
   line_total: number;
+  exempt_tax?: boolean;
   created_at?: string;
   updated_at?: string;
 }

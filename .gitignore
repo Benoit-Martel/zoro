@@ -9,6 +9,7 @@ lerna-debug.log*
 
 *.upload
 *.env
+.upload
 
 node_modules
 .DS_Store
