@@ -1,0 +1,16 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /zoro/
+  
+  # Don't rewrite if it's a real file or directory
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  
+  # Don't rewrite files with extensions (assets)
+  RewriteCond %{REQUEST_URI} \..+$
+  RewriteRule ^ - [L]
+  
+  # Rewrite everything else to index.html
+  RewriteRule ^(.*)$ index.html [L]
+</IfModule>

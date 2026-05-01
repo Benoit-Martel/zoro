@@ -1,0 +1,7 @@
+lftp -f "
+open ftp.cluster051.hosting.ovh.net
+user benoitx jmGqn2dRDuS6
+mirror -R --only-newer --verbose --use-cache --parallel=10 dist/ /www/dev/zoro
+put .htaccess -o /www/dev/zoro/.htaccess
+bye
+"
