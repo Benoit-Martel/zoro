@@ -16,6 +16,7 @@ body {
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -35,5 +36,9 @@ select:focus {
 @media print {
   header {
     display: none !important;
+  }
+
+  body {
+    background-color: white !important;
   }
 }

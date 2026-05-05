@@ -655,6 +655,76 @@ export class SupabaseService {
     }
   }
 
+  // Send invoice by email using Supabase Edge Function
+  static async sendInvoiceEmail(data: {
+    invoiceId: string;
+    recipient: string;
+    subject: string;
+    message: string;
+    invoiceNumber: string;
+    pdfBase64?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+
+      // Create abort controller with 30 second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/send-invoice-email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: anonKey,
+            },
+            body: JSON.stringify({
+              invoiceId: data.invoiceId,
+              recipient: data.recipient,
+              subject: data.subject,
+              message: data.message,
+              invoiceNumber: data.invoiceNumber,
+              pdfBase64: data.pdfBase64,
+            }),
+            signal: controller.signal,
+          },
+        );
+
+        clearTimeout(timeoutId);
+        console.log("Edge function response status:", response.status);
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(
+            `Edge Function error (${response.status}): ${errorData}`,
+          );
+        }
+
+        const result = (await response.json()) as {
+          success: boolean;
+          message: string;
+        };
+        return result;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === "AbortError") {
+          throw new Error(
+            "La demande a expiré. L'edge function prend trop de temps.",
+          );
+        }
+        throw fetchError;
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de l'email:", error);
+      throw new Error(
+        `Erreur lors de l'envoi de l'email: ${(error as Error).message || "Veuillez réessayer plus tard"}`,
+      );
+    }
+  }
+
   // Helper methods for password hashing and session tokens
   private static async hashPassword(password: string): Promise<string> {
     // Simple implementation - for production, use bcryptjs

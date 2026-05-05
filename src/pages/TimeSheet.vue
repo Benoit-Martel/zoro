@@ -1,23 +1,5 @@
 <template>
-  <div class="max-w-7xl mx-auto px-4 py-8">
-    <!-- Project Filter -->
-    <div class="mb-6">
-      <select
-        v-model="selectedProject"
-        @change="loadEntries"
-        class="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-      >
-        <option value="">Tous les projets</option>
-        <option
-          v-for="project in activeProjects"
-          :key="project.id"
-          :value="project.id"
-        >
-          {{ project.name }}
-        </option>
-      </select>
-    </div>
-
+  <div class="max-w-6xl mx-auto px-4 py-8">
     <!-- Calendar Section -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
       <div class="flex justify-between items-center mb-6">
@@ -28,9 +10,28 @@
         >
           <ChevronLeft :size="28" />
         </button>
-        <h3 class="text-2xl font-bold text-gray-900">
-          {{ monthYearDisplay }}
-        </h3>
+        <div class="flex items-center pl-12 gap-12 flex-1">
+          <!-- Project Filter -->
+          <div class="">
+            <select
+              v-model="selectedProject"
+              @change="loadEntries"
+              class="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+            >
+              <option value="">Tous les projets</option>
+              <option
+                v-for="project in activeProjects"
+                :key="project.id"
+                :value="project.id"
+              >
+                {{ project.name }}
+              </option>
+            </select>
+          </div>
+          <h3 class="text-2xl font-bold text-gray-900">
+            {{ monthYearDisplay }}
+          </h3>
+        </div>
         <button
           @click="nextMonth"
           class="text-blue-600 hover:text-blue-700 transition p-2"
@@ -70,20 +71,25 @@
             'bg-white': !isWeekend(day) && !isToday(day),
           }"
         >
-          <div class="font-bold text-lg text-gray-900 mb-1">{{ day }}</div>
-          <div class="text-xs space-y-1" @click.stop>
+          <div
+            v-if="getDayEntries(day).length === 0"
+            class="font-bold text-lg text-gray-900 mb-1"
+          >
+            {{ day }}
+          </div>
+          <div class="text-xs space-y-1 overflow-hidden max-h-20" @click.stop>
             <div
               v-for="entry in getDayEntries(day)"
               :key="entry.id"
               @click.stop="openEditModal(entry)"
-              class="rounded px-1 py-0.5 cursor-pointer transition hover:shadow-md flex items-start justify-between gap-1"
+              class="rounded px-1 py-0.5 cursor-pointer transition hover:shadow-md flex items-start justify-between gap-1 overflow-hidden"
               :style="{
                 backgroundColor: getProjectColor(entry.project_id),
                 color: getContrastTextColor(getProjectColor(entry.project_id)),
               }"
             >
               <div class="font-semibold flex-shrink-0">{{ entry.hours }}h</div>
-              <div class="flex-1 text-right">
+              <div class="flex-1 text-right overflow-hidden">
                 <div class="truncate text-xs">
                   {{ getProjectName(entry.project_id) }}
                 </div>
@@ -104,9 +110,12 @@
     <div
       v-if="showEditModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="closeEditModal"
+      @mousedown.self="closeEditModal"
     >
-      <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+      <div
+        class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md"
+        @click.stop
+      >
         <h3 class="text-2xl font-bold mb-2 text-gray-900">Modifier l'entrée</h3>
         <p class="text-sm text-gray-500 mb-6">
           ID:
@@ -188,19 +197,19 @@
         <div class="flex gap-4 mt-6">
           <button
             @click="saveEdit"
-            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition"
           >
             Sauvegarder
           </button>
           <button
             @click="closeEditModal"
-            class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
+            class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition"
           >
             Annuler
           </button>
           <button
             @click="deleteEdit"
-            class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition"
+            class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition"
           >
             Supprimer
           </button>
@@ -212,9 +221,12 @@
     <div
       v-if="showNewEntryModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="closeNewEntryModal"
+      @mousedown.self="closeNewEntryModal"
     >
-      <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+      <div
+        class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md"
+        @click.stop
+      >
         <h3 class="text-2xl font-bold mb-6 text-gray-900">
           Nouvelle entrée de temps
         </h3>
@@ -310,13 +322,13 @@
         <div class="flex gap-4 mt-6">
           <button
             @click="saveNewEntry"
-            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition"
           >
             Créer
           </button>
           <button
             @click="closeNewEntryModal"
-            class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
+            class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition"
           >
             Annuler
           </button>

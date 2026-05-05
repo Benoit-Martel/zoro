@@ -1,6 +1,6 @@
 <template>
-  <header class="bg-blue-600 text-white shadow-lg">
-    <div class="flex items-center justify-between max-w-7xl mx-auto px-4 py-4">
+  <header class="sticky top-0 z-50 bg-blue-600 text-white shadow-lg">
+    <div class="flex items-center justify-between max-w-6xl mx-auto px-4 py-4">
       <nav class="flex space-x-8">
         <router-link
           to="/timesheet"
@@ -48,12 +48,11 @@
       <div v-if="authStore.isAuthenticated" class="flex items-center gap-4">
         <div class="text-sm">
           <p class="font-semibold">{{ authStore.userEmail }}</p>
-          <p class="text-blue-100">Connecté</p>
         </div>
         <button
           @click="handleLogout"
           title="Déconnexion"
-          class="hover:bg-indigo-700 p-2 rounded transition"
+          class="hover:bg-indigo-700 p-2 rounded-full transition"
         >
           <LogOut size="20" class="text-white" />
         </button>

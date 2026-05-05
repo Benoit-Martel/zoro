@@ -1,71 +1,115 @@
 <template>
-  <div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto px-4 py-8">
     <div class="flex gap-4 items-center mb-8">
-      <input
-        v-model="searchTerm"
-        type="text"
-        placeholder="Filtrer par nom de projet..."
-        class="flex-1 px-4 py-2 border border-gray-300 rounded-full text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-      />
-      <div class="flex gap-4 items-center flex-shrink-0">
+      <div class="flex-1 flex gap-4 items-center">
+        <input
+          v-model="searchTerm"
+          type="text"
+          placeholder="Filtrer par nom de projet..."
+          class="flex-1 px-4 py-2 border border-gray-300 rounded-full text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+        />
         <!-- Filter Toggle -->
-        <div class="flex items-center gap-2">
-          <div class="flex bg-gray-200 rounded-full p-1">
-            <button
-              @click="filterStatus = 'all'"
-              :class="[
-                'px-4 py-1 rounded-full font-bold transition',
-                filterStatus === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900',
-              ]"
-            >
-              Tous
-            </button>
-            <button
-              @click="filterStatus = 'active'"
-              :class="[
-                'px-4 py-1 rounded-full font-bold transition',
-                filterStatus === 'active'
-                  ? 'bg-green-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900',
-              ]"
-            >
-              Actifs
-            </button>
-            <button
-              @click="filterStatus = 'archived'"
-              :class="[
-                'px-4 py-1 rounded-full font-bold transition',
-                filterStatus === 'archived'
-                  ? 'bg-red-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900',
-              ]"
-            >
-              Archivés
-            </button>
-          </div>
+        <div class="flex bg-gray-200 rounded-full p-1">
+          <button
+            @click="filterStatus = 'all'"
+            :class="[
+              'px-4 py-1 rounded-full font-bold transition',
+              filterStatus === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:text-gray-900',
+            ]"
+          >
+            Tous
+          </button>
+          <button
+            @click="filterStatus = 'active'"
+            :class="[
+              'px-4 py-1 rounded-full font-bold transition',
+              filterStatus === 'active'
+                ? 'bg-green-600 text-white'
+                : 'text-gray-600 hover:text-gray-900',
+            ]"
+          >
+            Actifs
+          </button>
+          <button
+            @click="filterStatus = 'archived'"
+            :class="[
+              'px-4 py-1 rounded-full font-bold transition',
+              filterStatus === 'archived'
+                ? 'bg-red-600 text-white'
+                : 'text-gray-600 hover:text-gray-900',
+            ]"
+          >
+            Archivés
+          </button>
         </div>
       </div>
+      <button
+        @click="showNewProjectModal = true"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition whitespace-nowrap"
+      >
+        Nouveau projet
+      </button>
     </div>
 
     <!-- Projects Table -->
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="px-6 py-4 bg-gray-100 border-b border-gray-200">
-        <h3 class="font-bold text-gray-900">Liste des projets</h3>
-      </div>
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th class="px-6 py-3 text-left font-bold text-gray-900">Nom</th>
-            <th class="px-6 py-3 text-left font-bold text-gray-900">Client</th>
-            <th class="px-6 py-3 text-center font-bold text-gray-900">
-              Heures
+          <tr style="height: 62px">
+            <th
+              @click="toggleSort('name')"
+              class="px-6 py-2 text-left font-bold text-gray-900 cursor-pointer hover:bg-gray-100 transition select-none"
+            >
+              Nom
+              <ChevronUp
+                v-if="getSortIndicator('name') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('name') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
             </th>
-            <th class="px-6 py-3 text-center font-bold text-gray-900">
+            <th
+              @click="toggleSort('client')"
+              class="px-6 py-2 text-left font-bold text-gray-900 cursor-pointer hover:bg-gray-100 transition select-none"
+            >
+              Client
+              <ChevronUp
+                v-if="getSortIndicator('client') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('client') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+            </th>
+            <th
+              @click="toggleSort('hours')"
+              class="px-6 py-2 text-center font-bold text-gray-900 cursor-pointer hover:bg-gray-100 transition select-none"
+            >
+              Heures
+              <ChevronUp
+                v-if="getSortIndicator('hours') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('hours') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+            </th>
+            <th class="px-6 py-2 text-center font-bold text-gray-900">
               Statut
             </th>
-            <th class="px-6 py-3 text-center font-bold text-gray-900">
+            <th class="px-6 py-2 text-center font-bold text-gray-900">
               Actions
             </th>
           </tr>
@@ -74,19 +118,20 @@
           <tr
             v-for="project in filteredProjects"
             :key="project.id"
+            style="height: 62px"
             class="border-b border-gray-200 hover:bg-gray-50 transition cursor-pointer"
             @click="openProjectModal(project)"
           >
-            <td class="px-6 py-4 font-semibold text-gray-900">
+            <td class="px-6 py-2 font-semibold text-gray-900">
               {{ project.name }}
             </td>
-            <td class="px-6 py-4 text-gray-700">
+            <td class="px-6 py-2 text-gray-700">
               {{ getClientName(project.client_id) }}
             </td>
-            <td class="px-6 py-4 text-center text-gray-700">
+            <td class="px-6 py-2 text-center text-gray-700">
               {{ getTotalProjectHours(project.id) }}h
             </td>
-            <td class="px-6 py-4 text-center" @click.stop>
+            <td class="px-6 py-2 text-center" @click.stop>
               <button
                 @click.stop="toggleProjectStatus(project)"
                 :class="[
@@ -104,7 +149,7 @@
                 />
               </button>
             </td>
-            <td class="px-6 py-4 text-center" @click.stop>
+            <td class="px-6 py-2 flex justify-center items-center" @click.stop>
               <router-link
                 :to="`/timesheet?project=${project.id}`"
                 class="text-blue-600 hover:text-blue-700 transition mr-4"
@@ -114,14 +159,14 @@
               </router-link>
               <button
                 @click.stop="deleteProject(project.id)"
-                class="text-red-600 hover:text-red-700 transition"
+                class="text-red-600"
                 title="Supprimer ce projet"
               >
-                <Trash2 :size="18" />
+                <X :size="28" />
               </button>
             </td>
           </tr>
-          <tr v-if="filteredProjects.length === 0">
+          <tr v-if="filteredProjects.length === 0" style="height: 62px">
             <td colspan="5" class="px-6 py-8 text-center text-gray-500">
               Aucun projet. Créez-en un pour commencer!
             </td>
@@ -138,233 +183,107 @@
       {{ projectStore.error }}
     </div>
 
-    <!-- Project Detail Modal -->
+    <!-- New Project Modal -->
     <div
-      v-if="showProjectModal && selectedProject"
+      v-if="showNewProjectModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="closeProjectModal"
+      @mousedown.self="showNewProjectModal = false"
     >
       <div
-        class="bg-white rounded-2xl shadow-lg w-full max-w-4xl max-h-[80vh] overflow-y-auto"
-        style="
-          padding: 20px;
-          scrollbar-width: thin;
-          scrollbar-gutter: stable inside;
-        "
+        class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md"
+        @click.stop
       >
         <h3 class="text-2xl font-bold mb-6 text-gray-900">
-          {{ selectedProject.name }}
+          Créer un nouveau projet
         </h3>
-
-        <div class="space-y-4">
-          <!-- Client Info -->
+        <form @submit.prevent="saveNewProject" class="space-y-4">
           <div>
-            <label class="block text-gray-700 font-bold mb-1">Client</label>
-            <p class="text-gray-900">
-              {{ getClientName(selectedProject.client_id) }}
-            </p>
-          </div>
-
-          <!-- Hourly Rate -->
-          <div>
-            <label class="block text-gray-700 font-bold mb-1"
-              >Taux horaire</label
+            <label class="block text-gray-700 font-bold mb-2">Client</label>
+            <select
+              v-model="newProjectData.client_id"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+              required
             >
-            <p class="text-gray-900">
-              {{ selectedProject.hourly_rate }}$ / heure
-            </p>
-          </div>
-
-          <!-- Status -->
-          <div>
-            <label class="block text-gray-700 font-bold mb-1">Statut</label>
-            <p class="text-gray-900">
-              <span
-                :class="[
-                  'px-3 py-1 rounded-full text-sm font-semibold',
-                  selectedProject.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800',
-                ]"
+              <option value="">Sélectionner un client</option>
+              <option
+                v-for="client in clientStore.clients"
+                :key="client.id"
+                :value="client.id"
               >
-                {{ selectedProject.status === "active" ? "Actif" : "Archivé" }}
-              </span>
-            </p>
+                {{ client.name }}
+              </option>
+            </select>
           </div>
-
-          <!-- Color -->
           <div>
             <label class="block text-gray-700 font-bold mb-2"
-              >Couleur du tag</label
+              >Nom du projet</label
             >
-            <div class="flex items-center gap-3">
-              <input
-                v-model="colorFormData"
-                type="color"
-                class="w-16 h-10 border border-gray-300 rounded cursor-pointer"
-              />
-              <button
-                @click="saveProjectColor"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition text-sm"
-              >
-                Appliquer
-              </button>
-            </div>
-          </div>
-
-          <!-- Total Hours -->
-          <div>
-            <label class="block text-gray-700 font-bold mb-1"
-              >Heures enregistrées</label
-            >
-            <p class="text-gray-900">
-              {{ getTotalProjectHours(selectedProject.id) }}h
-            </p>
-          </div>
-
-          <!-- Number of Time Entries -->
-          <div>
-            <label class="block text-gray-700 font-bold mb-1"
-              >Nombre d'entrées de temps</label
-            >
-            <p class="text-gray-900">
-              {{ getProjectTimeEntryCount(selectedProject.id) }}
-            </p>
-          </div>
-
-          <!-- Project ID -->
-          <div>
-            <label class="block text-gray-700 font-bold mb-1">ID Projet</label>
-            <p class="text-gray-900 text-xs break-all">
-              {{ selectedProject.id }}
-            </p>
-          </div>
-
-          <!-- Project Steps -->
-          <div class="border-t pt-4 mt-4">
-            <div class="flex justify-between items-center mb-3">
-              <label class="block text-gray-700 font-bold">Étapes</label>
-              <button
-                @click="showAddStepModal = true"
-                class="text-blue-600 hover:text-blue-800 text-sm font-semibold"
-              >
-                + Ajouter
-              </button>
-            </div>
-            <div class="space-y-2">
-              <div
-                v-for="step in projectSteps"
-                :key="step.id"
-                class="bg-gray-50 p-2 rounded flex justify-between items-center"
-              >
-                <div>
-                  <p class="font-semibold text-sm text-gray-900">
-                    {{ step.name }}
-                  </p>
-                  <p class="text-xs text-gray-600">
-                    {{ step.description }}
-                  </p>
-                </div>
-                <button
-                  @click="deleteStep(step.id)"
-                  class="text-red-600 hover:text-red-800 text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-              <div
-                v-if="projectSteps.length === 0"
-                class="text-gray-500 text-sm italic"
-              >
-                Aucune étape
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex gap-4 mt-6">
-          <button
-            @click="closeProjectModal"
-            class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
-          >
-            Fermer
-          </button>
-          <button
-            @click="
-              deleteProject(selectedProject.id);
-              closeProjectModal();
-            "
-            class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition"
-          >
-            Supprimer
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add Step Modal -->
-    <div
-      v-if="showAddStepModal && selectedProject"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="showAddStepModal = false"
-    >
-      <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-        <h3 class="text-2xl font-bold mb-6 text-gray-900">Ajouter une étape</h3>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-gray-700 font-bold mb-2">Nom</label>
             <input
-              v-model="newStepData.name"
+              v-model="newProjectData.name"
               type="text"
-              placeholder="Nom de l'étape"
+              placeholder="ex. Site web"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+              required
             />
           </div>
-
           <div>
             <label class="block text-gray-700 font-bold mb-2"
-              >Description</label
+              >Taux horaire ($)</label
             >
-            <textarea
-              v-model="newStepData.description"
-              placeholder="Description optionnelle"
+            <input
+              v-model.number="newProjectData.hourly_rate"
+              type="number"
+              placeholder="ex. 50"
+              step="0.01"
+              min="0"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-              rows="2"
-            ></textarea>
+              required
+            />
           </div>
-        </div>
-
-        <div class="flex gap-4 mt-6">
-          <button
-            @click="saveNewStep"
-            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
-          >
-            Créer
-          </button>
-          <button
-            @click="showAddStepModal = false"
-            class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
-          >
-            Annuler
-          </button>
-        </div>
+          <div class="flex gap-4 mt-6">
+            <button
+              type="submit"
+              :disabled="
+                !newProjectData.client_id ||
+                !newProjectData.name ||
+                newProjectData.hourly_rate <= 0
+              "
+              class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition disabled:opacity-50"
+            >
+              Créer le projet
+            </button>
+            <button
+              type="button"
+              @click="showNewProjectModal = false"
+              class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition"
+            >
+              Annuler
+            </button>
+          </div>
+        </form>
       </div>
     </div>
+
+    <!-- Project Detail Modal Component -->
+    <Project
+      :is-open="showProjectModal"
+      :project="selectedProject"
+      @close="closeProjectModal"
+      @delete="handleProjectDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from "vue";
-import { Trash2, Clock } from "lucide-vue-next";
+import { Clock, X, ChevronUp, ChevronDown } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
-import { useProjectStepStore } from "../stores/projectStepStore";
 import { useClientStore } from "../stores/clientStore";
 import { useContactStore } from "../stores/contactStore";
 import { useTimeEntryStore } from "../stores/timeEntryStore";
+import Project from "../components/Project.vue";
 
 const projectStore = useProjectStore();
-const projectStepStore = useProjectStepStore();
 const clientStore = useClientStore();
 const contactStore = useContactStore();
 const timeEntryStore = useTimeEntryStore();
@@ -372,7 +291,14 @@ const filterStatus = ref<"all" | "active" | "archived">("active");
 const searchTerm = ref("");
 const selectedProject = ref<any>(null);
 const showProjectModal = ref(false);
-const colorFormData = ref("#3B82F6");
+const showNewProjectModal = ref(false);
+const sortColumn = ref<"name" | "client" | "hours">("name");
+const sortDirection = ref<"asc" | "desc">("asc");
+const newProjectData = ref({
+  client_id: "",
+  name: "",
+  hourly_rate: 0,
+});
 
 const filteredProjects = computed(() => {
   let filtered = projectStore.projects;
@@ -400,13 +326,41 @@ const filteredProjects = computed(() => {
     });
   }
 
-  // Sort by newest first (by created_at descending, or by id if no created_at)
+  // Sort
   return filtered.sort((a, b) => {
-    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return bTime - aTime;
+    let aVal: any;
+    let bVal: any;
+
+    if (sortColumn.value === "name") {
+      aVal = a.name.toLowerCase();
+      bVal = b.name.toLowerCase();
+    } else if (sortColumn.value === "client") {
+      aVal = (clientStore.getClientById(a.client_id)?.name || "").toLowerCase();
+      bVal = (clientStore.getClientById(b.client_id)?.name || "").toLowerCase();
+    } else if (sortColumn.value === "hours") {
+      aVal = timeEntryStore.getProjectHours(a.id);
+      bVal = timeEntryStore.getProjectHours(b.id);
+    }
+
+    if (aVal < bVal) return sortDirection.value === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDirection.value === "asc" ? 1 : -1;
+    return 0;
   });
 });
+
+const toggleSort = (column: "name" | "client" | "hours") => {
+  if (sortColumn.value === column) {
+    sortDirection.value = sortDirection.value === "asc" ? "desc" : "asc";
+  } else {
+    sortColumn.value = column;
+    sortDirection.value = "asc";
+  }
+};
+
+const getSortIndicator = (column: "name" | "client" | "hours") => {
+  if (sortColumn.value !== column) return "none";
+  return sortDirection.value === "asc" ? "asc" : "desc";
+};
 
 onMounted(async () => {
   await clientStore.fetchClients();
@@ -454,9 +408,7 @@ const toggleProjectStatus = async (project: any) => {
 
 const openProjectModal = (project: any) => {
   selectedProject.value = project;
-  colorFormData.value = project.color || "#3B82F6";
   showProjectModal.value = true;
-  loadProjectSteps(project.id);
 };
 
 const closeProjectModal = () => {
@@ -464,72 +416,37 @@ const closeProjectModal = () => {
   selectedProject.value = null;
 };
 
-const saveProjectColor = async () => {
-  if (!selectedProject.value) return;
-
-  try {
-    await projectStore.updateProject(selectedProject.value.id, {
-      ...selectedProject.value,
-      color: colorFormData.value,
-    });
-    selectedProject.value.color = colorFormData.value;
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour de la couleur:", error);
+const handleProjectDelete = async () => {
+  if (selectedProject.value) {
+    await deleteProject(selectedProject.value.id);
   }
 };
 
-const getProjectTimeEntryCount = (projectId: string): number => {
-  return timeEntryStore.entries.filter(
-    (entry) => entry.project_id === projectId,
-  ).length;
-};
-
-// Step management
-const showAddStepModal = ref(false);
-const newStepData = ref({
-  name: "",
-  description: "",
-});
-
-const projectSteps = computed(() => {
-  if (!selectedProject.value) return [];
-  return projectStepStore.getStepsByProjectId(selectedProject.value.id);
-});
-
-const saveNewStep = async () => {
-  if (!newStepData.value.name || !selectedProject.value) {
-    alert("Veuillez entrer le nom de l'étape");
+const saveNewProject = async () => {
+  if (
+    !newProjectData.value.client_id ||
+    !newProjectData.value.name ||
+    newProjectData.value.hourly_rate <= 0
+  ) {
+    alert("Veuillez remplir tous les champs");
     return;
   }
 
   try {
-    await projectStepStore.addStep(selectedProject.value.id, {
-      name: newStepData.value.name,
-      description: newStepData.value.description || undefined,
+    await projectStore.addProject({
+      client_id: newProjectData.value.client_id,
+      name: newProjectData.value.name,
+      hourly_rate: newProjectData.value.hourly_rate,
       status: "active",
     });
-    newStepData.value = { name: "", description: "" };
-    showAddStepModal.value = false;
+    showNewProjectModal.value = false;
+    newProjectData.value = {
+      client_id: "",
+      name: "",
+      hourly_rate: 0,
+    };
   } catch (error) {
-    console.error("Erreur lors de la création de l'étape:", error);
-  }
-};
-
-const deleteStep = async (stepId: string) => {
-  if (confirm("Êtes-vous sûr de vouloir supprimer cette étape?")) {
-    try {
-      await projectStepStore.deleteStep(stepId);
-    } catch (error) {
-      console.error("Erreur lors de la suppression de l'étape:", error);
-    }
-  }
-};
-
-const loadProjectSteps = async (projectId: string) => {
-  try {
-    await projectStepStore.fetchSteps(projectId);
-  } catch (error) {
-    console.error("Erreur lors du chargement des étapes:", error);
+    console.error("Erreur lors de la création du projet:", error);
   }
 };
 </script>

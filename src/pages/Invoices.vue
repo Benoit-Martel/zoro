@@ -1,13 +1,14 @@
 <template>
-  <div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto px-4 py-8">
     <!-- Invoice Generator Modal -->
     <div
       v-if="showInvoiceModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="closeInvoiceModal"
+      @mousedown.self="closeInvoiceModal"
     >
       <div
         class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md max-h-96 overflow-y-auto"
+        @click.stop
       >
         <h3 class="text-2xl font-bold mb-6 text-gray-900">
           Générer une facture
@@ -68,14 +69,14 @@
             <button
               type="submit"
               :disabled="loading"
-              class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
+              class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition disabled:opacity-50"
             >
               {{ loading ? "Génération en cours..." : "Générer" }}
             </button>
             <button
               type="button"
               @click="closeInvoiceModal"
-              class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition"
+              class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition"
             >
               Annuler
             </button>
@@ -152,7 +153,7 @@
       <button
         @click="saveInvoice"
         :disabled="savingInvoice"
-        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded transition disabled:opacity-50 mr-2"
+        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full transition disabled:opacity-50 mr-2"
       >
         {{
           savingInvoice
@@ -162,80 +163,112 @@
       </button>
       <button
         @click="previewData = null"
-        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded transition"
+        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-full transition"
       >
         Annuler
       </button>
     </div>
 
     <!-- Saved Invoices -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <div
-        class="px-6 py-4 bg-gray-100 flex justify-between items-center gap-4"
+    <div class="flex gap-4 items-center mb-8">
+      <input
+        v-model="invoiceFilter"
+        type="text"
+        placeholder="Filtrer par numéro de facture ou projet..."
+        class="flex-1 px-4 py-2 border border-gray-300 rounded-full text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+      />
+
+      <button
+        @click="openInvoiceModal"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition"
       >
-        <!-- Invoice Filter -->
+        Nouvelle facture
+      </button>
+    </div>
 
-        <input
-          v-model="invoiceFilter"
-          type="text"
-          placeholder="Filtrer par numéro de facture ou projet..."
-          class="flex-1 w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-        />
-
-        <button
-          @click="openInvoiceModal"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition"
-        >
-          Nouvelle facture
-        </button>
-      </div>
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
       <table class="w-full">
-        <thead class="bg-gray-50">
-          <tr>
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr style="height: 62px">
             <th
               @click="toggleSort('invoice_number')"
               class="px-6 py-3 text-left text-gray-900 font-bold cursor-pointer hover:bg-gray-100 transition select-none"
             >
-              Numéro
-              <span class="ml-2 text-sm font-normal text-gray-500">{{
-                getSortIndicator("invoice_number")
-              }}</span>
+              #
+              <ChevronUp
+                v-if="getSortIndicator('invoice_number') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('invoice_number') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
             </th>
             <th
               @click="toggleSort('project')"
               class="px-6 py-3 text-left text-gray-900 font-bold cursor-pointer hover:bg-gray-100 transition select-none"
             >
               Projet
-              <span class="ml-2 text-sm font-normal text-gray-500">{{
-                getSortIndicator("project")
-              }}</span>
+              <ChevronUp
+                v-if="getSortIndicator('project') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('project') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
             </th>
             <th
               @click="toggleSort('date')"
               class="px-6 py-3 text-left text-gray-900 font-bold cursor-pointer hover:bg-gray-100 transition select-none"
             >
               Date
-              <span class="ml-2 text-sm font-normal text-gray-500">{{
-                getSortIndicator("date")
-              }}</span>
+              <ChevronUp
+                v-if="getSortIndicator('date') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('date') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
             </th>
             <th
               @click="toggleSort('total')"
               class="px-6 py-3 text-right text-gray-900 font-bold cursor-pointer hover:bg-gray-100 transition select-none"
             >
               Total
-              <span class="ml-2 text-sm font-normal text-gray-500">{{
-                getSortIndicator("total")
-              }}</span>
+              <ChevronUp
+                v-if="getSortIndicator('total') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('total') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
             </th>
             <th
               @click="toggleSort('status')"
               class="px-6 py-3 text-left text-gray-900 font-bold cursor-pointer hover:bg-gray-100 transition select-none"
             >
               Statut
-              <span class="ml-2 text-sm font-normal text-gray-500">{{
-                getSortIndicator("status")
-              }}</span>
+              <ChevronUp
+                v-if="getSortIndicator('status') === 'asc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
+              <ChevronDown
+                v-else-if="getSortIndicator('status') === 'desc'"
+                :size="16"
+                class="inline ml-2 text-gray-600"
+              />
             </th>
           </tr>
         </thead>
@@ -244,7 +277,8 @@
             v-for="invoice in filteredSortedInvoices"
             :key="invoice.id"
             @click="viewInvoice(invoice.id)"
-            class="border-b hover:bg-blue-50 cursor-pointer transition"
+            style="height: 62px"
+            class="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition"
           >
             <td class="px-6 py-4 text-gray-700">
               {{ invoice.invoice_number }}
@@ -263,7 +297,7 @@
                 :value="invoice.status || 'draft'"
                 @click.stop
                 @change="updateInvoiceStatus(invoice.id, $event)"
-                class="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-600"
+                class="px-3 py-1 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-blue-600"
               >
                 <option value="draft">Brouillon</option>
                 <option value="sent">Envoyée</option>
@@ -286,6 +320,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from "vue";
 import { useRouter } from "vue-router";
+import { ChevronUp, ChevronDown } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
 import { useTimeEntryStore } from "../stores/timeEntryStore";
 import { SupabaseService } from "../services/supabase";
@@ -499,8 +534,8 @@ const toggleSort = (
 const getSortIndicator = (
   column: "invoice_number" | "project" | "date" | "total" | "status",
 ) => {
-  if (sortColumn.value !== column) return "⇅";
-  return sortDirection.value === "asc" ? "↑" : "↓";
+  if (sortColumn.value !== column) return "none";
+  return sortDirection.value === "asc" ? "asc" : "desc";
 };
 
 const openInvoiceModal = () => {
