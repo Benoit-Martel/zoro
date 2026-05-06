@@ -63,14 +63,41 @@
           <h1 class="text-4xl font-bold text-gray-900">Facture</h1>
         </div>
         <div class="text-left">
-          <p class="text-gray-600">
-            <span class="font-semibold w-12 inline-block">No:</span>
-            {{ invoice.invoice_number }}
-          </p>
-          <p class="text-gray-600">
-            <span class="font-semibold w-12 inline-block">Date:</span>
-            {{ formatDate(invoice.date) }}
-          </p>
+          <!-- Print-only display -->
+          <div class="print-only">
+            <p class="text-gray-600">
+              <span class="font-semibold w-12 inline-block">No:</span>
+              {{ invoice.invoice_number }}
+            </p>
+            <p class="text-gray-600">
+              <span class="font-semibold w-12 inline-block">Date:</span>
+              {{ formatDate(invoice.date) }}
+            </p>
+          </div>
+
+          <!-- Editable fields -->
+          <div class="no-print space-y-2">
+            <!-- Invoice Number Input -->
+            <div>
+              <label class="text-gray-600 text-sm font-semibold">No:</label>
+              <input
+                v-model="editableInvoiceNumber"
+                type="text"
+                placeholder="Numéro de facture"
+                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-600"
+              />
+            </div>
+
+            <!-- Invoice Date Input -->
+            <div>
+              <label class="text-gray-600 text-sm font-semibold">Date:</label>
+              <input
+                v-model="editableInvoiceDate"
+                type="date"
+                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-600"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -926,6 +953,10 @@ const selectedClientId = ref<string>("");
 const selectedProjectId = ref<string>("");
 const selectedContactId = ref<string>("");
 
+// Editable invoice fields
+const editableInvoiceNumber = ref<string>("");
+const editableInvoiceDate = ref<string>("");
+
 // Import Modal refs
 const showImportModal = ref(false);
 const importForm = ref({
@@ -1110,6 +1141,12 @@ onMounted(async () => {
   // Fetch invoice
   try {
     invoice.value = await SupabaseService.getInvoice(invoiceId);
+
+    // Initialize editable fields
+    if (invoice.value) {
+      editableInvoiceNumber.value = invoice.value.invoice_number;
+      editableInvoiceDate.value = invoice.value.date;
+    }
 
     // Fetch project and client data
     if (invoice.value.project_id) {
@@ -1319,11 +1356,26 @@ const saveChanges = async () => {
   try {
     console.log("Saving invoice changes...");
 
-    // Update invoice with new project_id
-    await SupabaseService.updateInvoice(invoice.value.id, {
+    // Prepare update data
+    const updateData: any = {
       project_id: selectedProjectId.value,
-    });
+    };
+
+    // Add invoice number if changed
+    if (editableInvoiceNumber.value !== invoice.value.invoice_number) {
+      updateData.invoice_number = editableInvoiceNumber.value;
+    }
+
+    // Add date if changed
+    if (editableInvoiceDate.value !== invoice.value.date) {
+      updateData.date = editableInvoiceDate.value;
+    }
+
+    // Update invoice with all changes
+    await SupabaseService.updateInvoice(invoice.value.id, updateData);
     invoice.value.project_id = selectedProjectId.value;
+    invoice.value.invoice_number = editableInvoiceNumber.value;
+    invoice.value.date = editableInvoiceDate.value;
 
     // Update project with new contact_id if selected
     if (selectedContactId.value) {
