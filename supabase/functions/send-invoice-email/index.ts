@@ -13,24 +13,106 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  console.log("=== Edge Function Called ===");
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+  console.log("Headers:", {
+    contentType: req.headers.get("content-type"),
+    apikey: req.headers.get("apikey") ? "***present***" : "missing",
+  });
+
   try {
-    const { invoiceId, recipient, subject, message, invoiceNumber, pdfBase64 } =
-      await req.json();
+    // Get raw body text first for debugging
+    const bodyText = await req.text();
+    console.log("Raw body text length:", bodyText.length);
+    console.log("Raw body preview:", bodyText.substring(0, 200));
 
-    console.log("Email request received:", {
-      invoiceId,
-      recipient,
-      subject,
-      hasPdfBase64: !!pdfBase64,
-      pdfBase64Length: pdfBase64 ? pdfBase64.length : 0,
-    });
-
-    // Validate inputs
-    if (!invoiceId || !recipient || !subject) {
+    let body: Record<string, unknown> = {};
+    if (bodyText && bodyText.length > 0) {
+      try {
+        body = JSON.parse(bodyText);
+      } catch (parseError) {
+        console.error("Failed to parse JSON body:", parseError);
+        console.error("Body was:", bodyText);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: `Invalid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    } else {
+      console.error("Empty body received");
       return new Response(
         JSON.stringify({
           success: false,
-          message: "invoiceId, recipient, and subject are required",
+          message: "Empty request body",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    console.log("Parsed body keys:", Object.keys(body));
+    console.log("Body contents:", body);
+
+    const invoiceId = body.invoiceId as string | undefined;
+    const recipient = body.recipient as string[] | string | undefined;
+    const subject = body.subject as string | undefined;
+    const message = body.message as string | undefined;
+    const invoiceNumber = body.invoiceNumber as string | undefined;
+    const pdfBase64 = body.pdfBase64 as string | undefined;
+
+    console.log("Extracted fields:", {
+      invoiceId: invoiceId ? `${invoiceId.substring(0, 20)}...` : "undefined",
+      recipient: recipient,
+      recipientType: typeof recipient,
+      isArray: Array.isArray(recipient),
+      subject: subject ? `${subject.substring(0, 50)}...` : "undefined",
+      message: message ? `${message.substring(0, 50)}...` : "undefined",
+      invoiceNumber: invoiceNumber,
+      hasPdfBase64: !!pdfBase64,
+    });
+
+    // Validate inputs - support both single recipient (for backward compatibility) and multiple recipients
+    let recipientList: string[] = [];
+
+    if (Array.isArray(recipient)) {
+      recipientList = recipient.filter(
+        (r) => typeof r === "string" && r.length > 0,
+      );
+    } else if (typeof recipient === "string" && recipient.length > 0) {
+      recipientList = [recipient];
+    }
+
+    console.log("Final recipient list:", recipientList);
+    console.log("Final validation check:", {
+      hasInvoiceId: !!invoiceId,
+      invoiceIdValue: invoiceId,
+      recipientCount: recipientList.length,
+      recipientList: recipientList,
+      hasSubject: !!subject,
+      subjectValue: subject,
+    });
+
+    if (!invoiceId || recipientList.length === 0 || !subject) {
+      const missingFields: string[] = [];
+      if (!invoiceId) missingFields.push("invoiceId");
+      if (recipientList.length === 0) missingFields.push("recipient");
+      if (!subject) missingFields.push("subject");
+
+      const errorMessage = `Missing required fields: ${missingFields.join(", ")}`;
+      console.error("Validation failed:", errorMessage);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: errorMessage,
         }),
         {
           status: 400,
@@ -77,12 +159,12 @@ serve(async (req) => {
       throw new Error(`Project not found: ${projectError?.message || ""}`);
     }
 
-    // Construct email HTML
+    // Construct email HTML (use first recipient for personalization, or generic)
     const emailHtml = await generateInvoiceHTML(
       invoice,
       items || [],
       project,
-      recipient,
+      recipientList[0],
     );
 
     // Send email via Resend (or other service)
@@ -94,7 +176,7 @@ serve(async (req) => {
     if (!resendApiKey) {
       // If Resend is not configured, just log and return success
       console.log("RESEND_API_KEY not configured. Email sending is disabled.");
-      console.log(`Would send email to: ${recipient}`);
+      console.log(`Would send email to: ${recipientList.join(", ")}`);
       console.log(`Subject: ${subject}`);
 
       return new Response(
@@ -111,7 +193,7 @@ serve(async (req) => {
 
     const emailBody: Record<string, unknown> = {
       from: "Zoro App <onboarding@resend.dev>",
-      to: recipient,
+      to: recipientList,
       subject: subject,
       html: emailHtml,
       text: `${message}\n\nFacture #${invoiceNumber}`,
@@ -127,6 +209,7 @@ serve(async (req) => {
     }
 
     console.log("Sending to Resend with:", {
+      recipientCount: recipientList.length,
       hasAttachments: !!emailBody.attachments,
       attachmentsCount: (emailBody.attachments as unknown[])?.length || 0,
     });
@@ -149,7 +232,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Email sent successfully",
+        message: `Email sent successfully to ${recipientList.length} recipient(s)`,
       }),
       {
         status: 200,

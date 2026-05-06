@@ -44,6 +44,13 @@
       >
         <Send :size="24" />
       </button>
+      <button
+        @click="openEmailLogs"
+        title="Historique des emails"
+        class="flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-full transition text-sm"
+      >
+        📋 Logs
+      </button>
     </div>
 
     <!-- Printable Invoice -->
@@ -513,25 +520,86 @@
         @mousedown.self="showEmailModal = false"
       >
         <div
-          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md no-print"
+          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl no-print max-h-[90vh] flex flex-col"
           @click.stop
         >
           <h3 class="text-2xl font-bold mb-6 text-gray-900">
             Envoyer la facture par courriel
           </h3>
-          <form @submit.prevent="submitEmailInvoice" class="space-y-4">
+          <form
+            @submit.prevent="submitEmailInvoice"
+            class="space-y-4 overflow-y-auto flex-1"
+          >
+            <!-- Recipients Dropdown Selection -->
             <div>
               <label class="block text-gray-700 font-bold mb-2"
-                >Destinataire</label
+                >Ajouter des destinataires</label
               >
-              <input
-                v-model="emailForm.recipient"
-                type="email"
-                placeholder="exemple@client.com"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                required
-              />
+              <div class="flex gap-2">
+                <select
+                  @change="selectContact"
+                  class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                >
+                  <option value="">-- Sélectionner un contact --</option>
+                  <option
+                    v-for="contact in emailRecipientContacts"
+                    :key="contact.id"
+                    :value="contact.email"
+                  >
+                    {{ contact.name }} ({{ contact.email }})
+                  </option>
+                </select>
+              </div>
             </div>
+
+            <!-- Custom Email Input -->
+            <div>
+              <label class="block text-gray-700 font-bold mb-2"
+                >Ou entrer une adresse personnalisée</label
+              >
+              <div class="flex gap-2">
+                <input
+                  v-model="emailForm.customRecipient"
+                  type="email"
+                  placeholder="exemple@email.com"
+                  class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                />
+                <button
+                  type="button"
+                  @click="addRecipient"
+                  class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition"
+                >
+                  Ajouter
+                </button>
+              </div>
+            </div>
+
+            <!-- Selected Recipients List -->
+            <div
+              v-if="emailForm.recipients.length > 0"
+              class="bg-blue-50 border border-blue-200 rounded-lg p-3"
+            >
+              <label class="block text-gray-700 font-bold mb-2"
+                >Destinataires ({{ emailForm.recipients.length }})</label
+              >
+              <div class="space-y-2">
+                <div
+                  v-for="(recipient, index) in emailForm.recipients"
+                  :key="index"
+                  class="flex items-center justify-between bg-white p-2 rounded border border-gray-200"
+                >
+                  <span class="text-gray-700">{{ recipient }}</span>
+                  <button
+                    type="button"
+                    @click="removeRecipient(recipient)"
+                    class="text-red-600 hover:text-red-700 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label class="block text-gray-700 font-bold mb-2">Objet</label>
               <input
@@ -554,7 +622,7 @@
             <div class="flex gap-4 mt-6">
               <button
                 type="submit"
-                :disabled="sendingEmail"
+                :disabled="sendingEmail || emailForm.recipients.length === 0"
                 class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition disabled:opacity-50"
               >
                 {{ sendingEmail ? "Envoi en cours..." : "Envoyer" }}
@@ -562,12 +630,83 @@
               <button
                 type="button"
                 @click="showEmailModal = false"
-                class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition"
+                :disabled="sendingEmail"
+                class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition disabled:opacity-50"
               >
                 Annuler
               </button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- Email Logs Popup Modal -->
+      <div
+        v-if="showEmailLogs"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print"
+        @mousedown.self="showEmailLogs = false"
+      >
+        <div
+          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-3xl no-print max-h-[90vh] flex flex-col"
+          @click.stop
+        >
+          <h3 class="text-2xl font-bold mb-6 text-gray-900">
+            Historique des emails envoyés
+          </h3>
+          <div class="flex-1 overflow-y-auto">
+            <div
+              v-if="emailLogs.length === 0"
+              class="text-center py-8 text-gray-500"
+            >
+              Aucun email envoyé pour cette facture
+            </div>
+            <table v-else class="w-full border-collapse text-sm">
+              <thead>
+                <tr class="bg-gray-200 border-b">
+                  <th class="text-left py-3 px-4 font-bold">Date/Heure</th>
+                  <th class="text-left py-3 px-4 font-bold">Destinataire</th>
+                  <th class="text-left py-3 px-4 font-bold">Objet</th>
+                  <th class="text-left py-3 px-4 font-bold">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="log in emailLogs"
+                  :key="log.id"
+                  class="border-b hover:bg-gray-50"
+                >
+                  <td class="py-3 px-4">{{ formatDateTime(log.sent_at) }}</td>
+                  <td class="py-3 px-4">{{ log.recipient }}</td>
+                  <td class="py-3 px-4">{{ log.subject }}</td>
+                  <td class="py-3 px-4">
+                    <span
+                      :class="{
+                        'bg-green-100 text-green-800': log.success,
+                        'bg-red-100 text-red-800': !log.success,
+                      }"
+                      class="px-2 py-1 rounded text-xs font-bold"
+                    >
+                      {{ log.success ? "✓ Succès" : "✗ Erreur" }}
+                    </span>
+                    <div
+                      v-if="log.error_message"
+                      class="text-red-600 text-xs mt-1"
+                    >
+                      {{ log.error_message }}
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex gap-4 mt-6">
+            <button
+              @click="showEmailLogs = false"
+              class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-full transition"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
 
@@ -820,8 +959,12 @@ const editItemForm = ref({
 // Email Modal refs
 const showEmailModal = ref(false);
 const sendingEmail = ref(false);
+const emailRecipientContacts = ref<any[]>([]);
+const showEmailLogs = ref(false);
+const emailLogs = ref<any[]>([]);
 const emailForm = ref({
-  recipient: "",
+  recipients: [] as string[],
+  customRecipient: "",
   subject: "",
   message: "Veuillez trouver ci-joint votre facture.",
 });
@@ -1006,6 +1149,17 @@ const formatDate = (date: string) => {
     year: "numeric",
     month: "long",
     day: "numeric",
+  });
+};
+
+const formatDateTime = (datetime: string) => {
+  return new Date(datetime).toLocaleString("fr-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 };
 
@@ -1395,17 +1549,111 @@ const deleteInvoiceItem = async (itemId: string) => {
 const sendInvoice = async () => {
   if (!invoice.value) return;
 
-  // Pre-fill email form with client info
-  emailForm.value.recipient = client.value?.email || "";
+  // Ensure client is available
+  if (!client.value) {
+    alert("Veuillez sélectionner un client pour cette facture");
+    return;
+  }
+
+  // Fetch contacts for the client
+  try {
+    emailRecipientContacts.value = await SupabaseService.getContacts(
+      client.value.id,
+    );
+    console.log("Fetched contacts:", emailRecipientContacts.value);
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    emailRecipientContacts.value = [];
+  }
+
+  // Pre-fill email form with client info and first contact if available
+  const recipients: string[] = [];
+
+  // Add client email if available
+  if (client.value.email && client.value.email.trim()) {
+    recipients.push(client.value.email);
+  }
+
+  // Add first contact email if available
+  if (emailRecipientContacts.value.length > 0) {
+    const firstContactEmail = emailRecipientContacts.value[0].email;
+    if (
+      firstContactEmail &&
+      firstContactEmail.trim() &&
+      !recipients.includes(firstContactEmail)
+    ) {
+      recipients.push(firstContactEmail);
+    }
+  }
+
+  console.log("Initialized recipients:", recipients);
+
+  emailForm.value.recipients = recipients;
+  emailForm.value.customRecipient = "";
   emailForm.value.subject = `Facture #${invoice.value.invoice_number}`;
   emailForm.value.message = "Veuillez trouver ci-joint votre facture.";
 
   showEmailModal.value = true;
 };
 
-const submitEmailInvoice = async () => {
-  if (!invoice.value || !emailForm.value.recipient) {
+const addRecipient = () => {
+  if (!emailForm.value.customRecipient) {
     alert("Veuillez entrer une adresse email");
+    return;
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(emailForm.value.customRecipient)) {
+    alert("Veuillez entrer une adresse email valide");
+    return;
+  }
+
+  // Add if not already in list
+  if (!emailForm.value.recipients.includes(emailForm.value.customRecipient)) {
+    emailForm.value.recipients.push(emailForm.value.customRecipient);
+  }
+  emailForm.value.customRecipient = "";
+};
+
+const removeRecipient = (email: string) => {
+  emailForm.value.recipients = emailForm.value.recipients.filter(
+    (r) => r !== email,
+  );
+};
+
+const selectContact = (event: Event) => {
+  const target = event.target as HTMLSelectElement;
+  const email = target.value;
+  if (email && !emailForm.value.recipients.includes(email)) {
+    emailForm.value.recipients.push(email);
+  }
+  target.value = ""; // Reset dropdown
+};
+
+const openEmailLogs = async () => {
+  if (!invoice.value) return;
+
+  try {
+    emailLogs.value = await SupabaseService.getEmailLogs(invoice.value.id);
+    showEmailLogs.value = true;
+  } catch (error) {
+    console.error("Erreur lors du chargement des logs:", error);
+    alert("Erreur lors du chargement des logs d'emails");
+  }
+};
+
+const submitEmailInvoice = async () => {
+  console.log("Submit Email Invoice called");
+  console.log("Current emailForm.value:", emailForm.value);
+
+  if (!invoice.value) {
+    alert("Invoice non trouvée");
+    return;
+  }
+
+  if (!emailForm.value.recipients || emailForm.value.recipients.length === 0) {
+    alert("Veuillez sélectionner au moins une adresse email");
     return;
   }
 
@@ -1420,15 +1668,41 @@ const submitEmailInvoice = async () => {
       preview: pdfBase64 ? pdfBase64.substring(0, 50) : "N/A",
     });
 
-    // Send the email via Supabase Edge Function with PDF attachment
-    await SupabaseService.sendInvoiceEmail({
+    const emailData = {
       invoiceId: invoice.value.id,
-      recipient: emailForm.value.recipient,
+      recipient: emailForm.value.recipients,
       subject: emailForm.value.subject,
       message: emailForm.value.message,
       invoiceNumber: invoice.value.invoice_number,
       pdfBase64: pdfBase64,
+    };
+
+    console.log("About to send email with data:", {
+      invoiceId: emailData.invoiceId,
+      recipient: emailData.recipient,
+      recipientType: typeof emailData.recipient,
+      isArray: Array.isArray(emailData.recipient),
+      subject: emailData.subject,
+      message: emailData.message,
+      invoiceNumber: emailData.invoiceNumber,
+      hasPdf: !!emailData.pdfBase64,
     });
+
+    // Send the email via Supabase Edge Function with PDF attachment
+    const result = await SupabaseService.sendInvoiceEmail(emailData);
+
+    // Save email logs for each recipient
+    for (const recipient of emailForm.value.recipients) {
+      await SupabaseService.saveEmailLog({
+        invoice_id: invoice.value.id,
+        recipient: recipient,
+        subject: emailForm.value.subject,
+        message: emailForm.value.message,
+        sent_at: new Date().toISOString(),
+        success: result.success,
+        error_message: result.success ? null : result.message,
+      });
+    }
 
     // Update invoice status to "sent"
     await SupabaseService.updateInvoice(invoice.value.id, {
@@ -1438,14 +1712,38 @@ const submitEmailInvoice = async () => {
 
     showEmailModal.value = false;
     emailForm.value = {
-      recipient: "",
+      recipients: [],
+      customRecipient: "",
       subject: "",
       message: "Veuillez trouver ci-joint votre facture.",
     };
 
+    // Refresh email logs
+    await openEmailLogs();
+
     alert("Facture envoyée avec succès!");
   } catch (error) {
     console.error("Erreur lors de l'envoi:", error);
+
+    // Save failed email logs for each recipient
+    if (invoice.value && emailForm.value.recipients.length > 0) {
+      for (const recipient of emailForm.value.recipients) {
+        try {
+          await SupabaseService.saveEmailLog({
+            invoice_id: invoice.value.id,
+            recipient: recipient,
+            subject: emailForm.value.subject,
+            message: emailForm.value.message,
+            sent_at: new Date().toISOString(),
+            success: false,
+            error_message: (error as Error).message,
+          });
+        } catch (logError) {
+          console.error("Erreur lors de la sauvegarde du log:", logError);
+        }
+      }
+    }
+
     alert("Erreur lors de l'envoi de la facture: " + (error as Error).message);
   } finally {
     sendingEmail.value = false;

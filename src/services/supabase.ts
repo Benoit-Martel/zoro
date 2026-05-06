@@ -658,7 +658,7 @@ export class SupabaseService {
   // Send invoice by email using Supabase Edge Function
   static async sendInvoiceEmail(data: {
     invoiceId: string;
-    recipient: string;
+    recipient: string[];
     subject: string;
     message: string;
     invoiceNumber: string;
@@ -668,11 +668,54 @@ export class SupabaseService {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
+      // Convert Vue Proxy to plain array to ensure proper JSON serialization
+      const plainRecipient = Array.isArray(data.recipient)
+        ? [...data.recipient]
+        : [];
+
+      const requestBody = {
+        invoiceId: data.invoiceId,
+        recipient: plainRecipient,
+        subject: data.subject,
+        message: data.message,
+        invoiceNumber: data.invoiceNumber,
+        pdfBase64: data.pdfBase64,
+      };
+
+      console.log("=== sendInvoiceEmail called ===");
+      console.log("Input data:", {
+        invoiceId: data.invoiceId,
+        recipient: data.recipient,
+        subject: data.subject,
+        invoiceNumber: data.invoiceNumber,
+        hasPdf: !!data.pdfBase64,
+      });
+
+      console.log("Request body to send:", {
+        ...requestBody,
+        pdfBase64Length: requestBody.pdfBase64
+          ? requestBody.pdfBase64.length
+          : 0,
+      });
+
+      const jsonBody = JSON.stringify(requestBody);
+      console.log("JSON stringified body length:", jsonBody.length);
+      console.log("JSON Body preview:", jsonBody.substring(0, 300));
+
       // Create abort controller with 30 second timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       try {
+        console.log(
+          "Making fetch request to:",
+          `${supabaseUrl}/functions/v1/send-invoice-email`,
+        );
+        console.log("Headers being sent:", {
+          "Content-Type": "application/json",
+          apikey: anonKey ? "***present***" : "MISSING",
+        });
+
         const response = await fetch(
           `${supabaseUrl}/functions/v1/send-invoice-email`,
           {
@@ -681,23 +724,19 @@ export class SupabaseService {
               "Content-Type": "application/json",
               apikey: anonKey,
             },
-            body: JSON.stringify({
-              invoiceId: data.invoiceId,
-              recipient: data.recipient,
-              subject: data.subject,
-              message: data.message,
-              invoiceNumber: data.invoiceNumber,
-              pdfBase64: data.pdfBase64,
-            }),
+            body: jsonBody,
             signal: controller.signal,
           },
         );
 
         clearTimeout(timeoutId);
-        console.log("Edge function response status:", response.status);
+        console.log("Edge function response received:");
+        console.log("  Status:", response.status);
+        console.log("  Status text:", response.statusText);
 
         if (!response.ok) {
           const errorData = await response.text();
+          console.error("Error response from Edge Function:", errorData);
           throw new Error(
             `Edge Function error (${response.status}): ${errorData}`,
           );
@@ -707,6 +746,7 @@ export class SupabaseService {
           success: boolean;
           message: string;
         };
+        console.log("Success response:", result);
         return result;
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -722,6 +762,42 @@ export class SupabaseService {
       throw new Error(
         `Erreur lors de l'envoi de l'email: ${(error as Error).message || "Veuillez réessayer plus tard"}`,
       );
+    }
+  }
+
+  // Save email log
+  static async saveEmailLog(log: {
+    invoice_id: string;
+    recipient: string;
+    subject: string;
+    message: string;
+    sent_at: string;
+    success: boolean;
+    error_message: string | null;
+  }): Promise<void> {
+    try {
+      const { error } = await supabase.from("zoro_email_logs").insert([log]);
+      if (error) throw error;
+      console.log("Email log saved successfully");
+    } catch (error) {
+      console.error("Error saving email log:", error);
+      throw error;
+    }
+  }
+
+  // Get email logs for an invoice
+  static async getEmailLogs(invoiceId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from("zoro_email_logs")
+        .select("*")
+        .eq("invoice_id", invoiceId)
+        .order("sent_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching email logs:", error);
+      throw error;
     }
   }
 
