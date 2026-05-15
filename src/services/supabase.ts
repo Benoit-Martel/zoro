@@ -293,6 +293,14 @@ export class SupabaseService {
     return data;
   }
 
+  static async deleteInvoice(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("zoro_invoices")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  }
+
   // Invoice items operations
   static async getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]> {
     const { data, error } = await supabase

@@ -179,7 +179,7 @@
       />
 
       <button
-        @click="openInvoiceModal"
+        @click="createNewInvoice"
         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition"
       >
         Nouvelle facture
@@ -270,6 +270,9 @@
                 class="inline ml-2 text-gray-600"
               />
             </th>
+            <th class="px-6 py-3 text-center text-gray-900 font-bold">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -304,6 +307,15 @@
                 <option value="paid">Payée</option>
               </select>
             </td>
+            <td class="px-6 py-4 text-center">
+              <button
+                @click.stop="deleteInvoice(invoice.id)"
+                class="text-red-600 hover:text-red-800 transition"
+                title="Supprimer la facture"
+              >
+                <Trash2 :size="18" />
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -320,7 +332,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { ChevronUp, ChevronDown } from "lucide-vue-next";
+import { ChevronUp, ChevronDown, Trash2 } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
 import { useTimeEntryStore } from "../stores/timeEntryStore";
 import { SupabaseService } from "../services/supabase";
@@ -471,6 +483,24 @@ const viewInvoice = (invoiceId: string) => {
   router.push(`/invoices/${invoiceId}`);
 };
 
+const deleteInvoice = async (invoiceId: string) => {
+  if (!confirm("Êtes-vous sûr de vouloir supprimer cette facture?")) {
+    return;
+  }
+
+  try {
+    await SupabaseService.deleteInvoice(invoiceId);
+    savedInvoices.value = savedInvoices.value.filter(
+      (inv) => inv.id !== invoiceId,
+    );
+    invoiceItems.value.delete(invoiceId);
+    alert("Facture supprimée avec succès!");
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la facture:", error);
+    alert("Erreur lors de la suppression de la facture");
+  }
+};
+
 const activeProjects = computed(() => {
   return projectStore.projects.filter((p) => p.status === "active");
 });
@@ -538,19 +568,31 @@ const getSortIndicator = (
   return sortDirection.value === "asc" ? "asc" : "desc";
 };
 
-const openInvoiceModal = () => {
-  invoiceForm.value = {
-    project_id: "",
-    invoice_number: "",
-    startDate: "",
-    endDate: "",
-  };
-  previewData.value = null;
-  showInvoiceModal.value = true;
+const getNextInvoiceNumber = (): string => {
+  let maxNum = 0;
+  for (const inv of savedInvoices.value) {
+    const match = inv.invoice_number.match(/(\d+)$/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  }
+  return String(maxNum + 1);
 };
 
-const closeInvoiceModal = () => {
-  showInvoiceModal.value = false;
+const createNewInvoice = async () => {
+  try {
+    const newInvoice = await SupabaseService.createInvoice({
+      project_id: null as any,
+      invoice_number: getNextInvoiceNumber(),
+      date: new Date().toISOString().split("T")[0],
+      total_amount: 0,
+      status: "draft",
+    });
+    router.push(`/invoices/${newInvoice.id}`);
+  } catch (error) {
+    console.error("Erreur lors de la création de la facture:", error);
+  }
 };
 
 const updateInvoiceStatus = async (invoiceId: string, event: Event) => {

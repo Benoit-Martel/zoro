@@ -1,5 +1,5 @@
 <template>
-  <header class="sticky top-0 z-50 bg-blue-600 text-white shadow-lg">
+  <header class="sticky top-0 z-50 text-white shadow-lg">
     <div class="flex items-center justify-between max-w-6xl mx-auto px-4 py-4">
       <nav class="flex space-x-8">
         <router-link
@@ -79,5 +79,8 @@ const handleLogout = async () => {
 #zorodateur-logo {
   width: 50px;
   height: 50px;
+}
+header {
+  background: #c0c0bc;
 }
 </style>

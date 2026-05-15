@@ -202,7 +202,7 @@
         @mousedown.self="closeImportModal"
       >
         <div
-          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl max-h-96 overflow-y-auto no-print"
+          class="bg-white rounded-lg shadow-lg p-8 w-full max-w-4xl max-h-[95vh] overflow-y-auto no-print"
           @click.stop
         >
           <h3 class="text-2xl font-bold mb-6 text-gray-900">
@@ -264,21 +264,56 @@
             <!-- Available Entries Preview -->
             <div
               v-if="availableTimeEntries.length > 0"
-              class="bg-gray-50 p-4 rounded max-h-40 overflow-y-auto"
+              class="bg-gray-50 p-4 rounded overflow-y-auto"
             >
-              <p class="font-semibold text-gray-900 mb-3">
-                {{ availableTimeEntries.length }} entrée(s) disponible(s)
-              </p>
-              <div class="space-y-2">
-                <div
+              <div class="flex items-center justify-between mb-3">
+                <p class="font-semibold text-gray-900">
+                  {{ availableTimeEntries.length }} entrée(s) disponible(s)
+                  <span class="text-blue-600 ml-2"
+                    >({{ selectedEntryIds.size }} sélectionnée(s))</span
+                  >
+                </p>
+                <label
+                  class="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="allEntriesSelected"
+                    @change="toggleSelectAll"
+                    class="rounded border-gray-300 w-4 h-4"
+                  />
+                  Tout sélectionner
+                </label>
+              </div>
+              <div class="space-y-1">
+                <label
                   v-for="entry in availableTimeEntries"
                   :key="entry.id"
-                  class="text-sm text-gray-700 pb-2 border-b border-gray-200"
+                  class="flex items-start gap-3 text-sm text-gray-700 pb-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
                 >
-                  <strong>{{ formatDate(entry.date) }}</strong> -
-                  {{ getServiceName(entry.service_id) || "Sans service" }} -
-                  <strong>{{ entry.hours }}h</strong>
-                </div>
+                  <input
+                    type="checkbox"
+                    :checked="selectedEntryIds.has(entry.id)"
+                    @change="toggleEntry(entry.id)"
+                    class="mt-0.5 rounded border-gray-300 w-4 h-4 shrink-0"
+                  />
+                  <span>
+                    <strong>{{ formatDate(entry.date) }}</strong> —
+                    {{ getServiceName(entry.service_id) || "Sans service" }}
+                    <span
+                      v-if="getStepName(entry.step_id)"
+                      class="text-blue-600"
+                    >
+                      — {{ getStepName(entry.step_id) }}</span
+                    >
+                    — <strong>{{ entry.hours }}h</strong>
+                    <span
+                      v-if="entry.description"
+                      class="block text-gray-500"
+                      >{{ entry.description }}</span
+                    >
+                  </span>
+                </label>
               </div>
             </div>
             <div v-else class="bg-yellow-50 p-4 rounded text-yellow-800">
@@ -289,10 +324,10 @@
           <div class="flex gap-4 mt-6">
             <button
               @click="importTimeEntries"
-              :disabled="availableTimeEntries.length === 0"
+              :disabled="selectedEntryIds.size === 0"
               class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition disabled:opacity-50"
             >
-              Ajouter à la facture
+              Ajouter à la facture ({{ selectedEntryIds.size }})
             </button>
             <button
               @click="closeImportModal"
@@ -786,6 +821,12 @@
                   <p v-if="getItemDisplay(item).description">
                     {{ getItemDisplay(item).description }}
                   </p>
+                  <p
+                    v-if="getItemDisplay(item).stepName"
+                    class="text-sm text-blue-600"
+                  >
+                    {{ getItemDisplay(item).stepName }}
+                  </p>
                 </td>
                 <td class="py-3 px-4 text-center text-gray-900">
                   {{ formatCurrency(item.unit_price) }}
@@ -935,6 +976,7 @@ import { useClientStore } from "../stores/clientStore";
 import { useContactStore } from "../stores/contactStore";
 import { useTimeEntryStore } from "../stores/timeEntryStore";
 import { useServiceStore } from "../stores/serviceStore";
+import { useProjectStepStore } from "../stores/projectStepStore";
 import type { Invoice, InvoiceItem } from "../types";
 import { SupabaseService } from "../services/supabase";
 import html2pdf from "html2pdf.js";
@@ -946,6 +988,7 @@ const clientStore = useClientStore();
 const contactStore = useContactStore();
 const timeEntryStore = useTimeEntryStore();
 const serviceStore = useServiceStore();
+const projectStepStore = useProjectStepStore();
 
 const invoice = ref<Invoice | null>(null);
 const invoiceItems = ref<InvoiceItem[]>([]);
@@ -959,6 +1002,30 @@ const editableInvoiceDate = ref<string>("");
 
 // Import Modal refs
 const showImportModal = ref(false);
+const selectedEntryIds = ref<Set<string>>(new Set());
+
+const allEntriesSelected = computed(
+  () =>
+    availableTimeEntries.value.length > 0 &&
+    availableTimeEntries.value.every((e) => selectedEntryIds.value.has(e.id)),
+);
+
+const toggleSelectAll = () => {
+  if (allEntriesSelected.value) {
+    selectedEntryIds.value = new Set();
+  } else {
+    selectedEntryIds.value = new Set(
+      availableTimeEntries.value.map((e) => e.id),
+    );
+  }
+};
+
+const toggleEntry = (id: string) => {
+  const next = new Set(selectedEntryIds.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  selectedEntryIds.value = next;
+};
 const importForm = ref({
   startDate: "",
   endDate: "",
@@ -1022,13 +1089,18 @@ const client = computed(() => {
 });
 
 const availableClients = computed(() => {
-  return clientStore.clients;
+  const clientsWithActiveProjects = new Set(
+    projectStore.projects
+      .filter((p) => p.status === "active")
+      .map((p) => p.client_id),
+  );
+  return clientStore.clients.filter((c) => clientsWithActiveProjects.has(c.id));
 });
 
 const availableProjects = computed(() => {
   if (!selectedClientId.value) return [];
   return projectStore.projects.filter(
-    (p) => p.client_id === selectedClientId.value,
+    (p) => p.client_id === selectedClientId.value && p.status === "active",
   );
 });
 
@@ -1126,9 +1198,41 @@ const itemsGroupedByService = computed(() => {
   return grouped;
 });
 
-// Display items as they are without merging
+// Display items grouped by service and merged by description
 const itemsDisplayForTable = computed(() => {
-  return itemsGroupedByService.value;
+  const grouped: { [key: string]: InvoiceItem[] } = {};
+  const mergedMap = new Map<string, InvoiceItem>();
+
+  invoiceItems.value.forEach((item) => {
+    const serviceName = getServiceName(item.service_id) || "Sans service";
+    const mergeKey = `${serviceName}|${item.description}`;
+
+    if (!grouped[serviceName]) {
+      grouped[serviceName] = [];
+    }
+
+    if (mergedMap.has(mergeKey)) {
+      // Item with same service and description already exists - merge quantities
+      const mergedItem = mergedMap.get(mergeKey)!;
+      mergedItem.quantity += item.quantity;
+      mergedItem.subtotal = mergedItem.quantity * mergedItem.unit_price;
+      mergedItem.tax_1_amount += item.tax_1_amount;
+      mergedItem.tax_2_amount += item.tax_2_amount;
+      mergedItem.discount_amount += item.discount_amount;
+      mergedItem.line_total =
+        mergedItem.subtotal +
+        mergedItem.tax_1_amount +
+        mergedItem.tax_2_amount -
+        mergedItem.discount_amount;
+    } else {
+      // Create a copy for this item to avoid mutating the original
+      const itemCopy: InvoiceItem = { ...item };
+      grouped[serviceName].push(itemCopy);
+      mergedMap.set(mergeKey, itemCopy);
+    }
+  });
+
+  return grouped;
 });
 
 onMounted(async () => {
@@ -1173,6 +1277,8 @@ onMounted(async () => {
 
       // Fetch time entries for import functionality
       await timeEntryStore.fetchTimeEntries();
+      // Fetch project steps
+      await projectStepStore.fetchSteps(invoice.value.project_id);
       console.log(invoiceItems.value);
     }
   } catch (error) {
@@ -1182,7 +1288,8 @@ onMounted(async () => {
 });
 
 const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString("fr-CA", {
+  const [year, month, day] = date.substring(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("fr-CA", {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -1341,6 +1448,9 @@ const onClientChange = async () => {
 const onProjectChange = async () => {
   // Reset contact when project changes
   selectedContactId.value = "";
+  if (selectedProjectId.value) {
+    await projectStepStore.fetchSteps(selectedProjectId.value);
+  }
 };
 
 const onContactChange = async () => {
@@ -1392,6 +1502,23 @@ const saveChanges = async () => {
   }
 };
 
+// Import Modal functions
+const openImportModal = () => {
+  // Reset form to defaults
+  importForm.value = {
+    startDate: "",
+    endDate: "",
+    importAll: false,
+    excludeInvoiced: true,
+  };
+  selectedEntryIds.value = new Set();
+  showImportModal.value = true;
+};
+
+const closeImportModal = () => {
+  showImportModal.value = false;
+};
+
 // Custom Item Modal functions
 const openCustomItemModal = () => {
   // Reset form
@@ -1410,14 +1537,26 @@ const closeCustomItemModal = () => {
 };
 
 // Edit Item Modal functions
+// Store the original service_id+description to find sibling items in a merged group
+const editingOriginalKey = ref<{
+  service_id: string | null;
+  description: string;
+} | null>(null);
+
 const openEditModal = (item: InvoiceItem) => {
   editingItemId.value = item.id;
+  // Find the actual underlying item (not the display-merged copy) to get the real unit_price
+  const actualItem = invoiceItems.value.find((i) => i.id === item.id) || item;
+  editingOriginalKey.value = {
+    service_id: actualItem.service_id || null,
+    description: actualItem.description,
+  };
   editItemForm.value = {
-    service_id: item.service_id || "",
-    description: item.description,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    exempt_tax: item.exempt_tax || false,
+    service_id: actualItem.service_id || "",
+    description: actualItem.description,
+    quantity: item.quantity, // merged quantity for display only
+    unit_price: actualItem.unit_price,
+    exempt_tax: actualItem.exempt_tax || false,
   };
   showEditItemModal.value = true;
 };
@@ -1425,6 +1564,7 @@ const openEditModal = (item: InvoiceItem) => {
 const closeEditModal = () => {
   showEditItemModal.value = false;
   editingItemId.value = null;
+  editingOriginalKey.value = null;
 };
 
 const updateInvoiceItem = async () => {
@@ -1434,34 +1574,49 @@ const updateInvoiceItem = async () => {
   }
 
   try {
-    const subtotal =
-      editItemForm.value.quantity * editItemForm.value.unit_price;
+    // Find all items in the same merge group (same original service + description)
+    const origKey = editingOriginalKey.value;
+    const siblingItems = origKey
+      ? invoiceItems.value.filter(
+          (i) =>
+            (i.service_id || null) === origKey.service_id &&
+            i.description === origKey.description,
+        )
+      : invoiceItems.value.filter((i) => i.id === editingItemId.value);
 
-    const updateData = {
-      service_id: editItemForm.value.service_id || null,
-      description: editItemForm.value.description,
-      quantity: editItemForm.value.quantity,
-      unit_price: editItemForm.value.unit_price,
-      subtotal: subtotal,
-      line_total: subtotal,
-      exempt_tax: editItemForm.value.exempt_tax,
-    };
-
-    // Update in database
-    await SupabaseService.updateInvoiceItem(editingItemId.value, updateData);
-
-    // Update in local state
-    const itemIndex = invoiceItems.value.findIndex(
-      (item) => item.id === editingItemId.value,
-    );
-    if (itemIndex !== -1) {
-      invoiceItems.value[itemIndex] = {
-        ...invoiceItems.value[itemIndex],
-        ...updateData,
+    // Update every item in the group (unit_price, service, description, tax exemption).
+    // For the primary item being edited, apply the form quantity.
+    // For other siblings in a merged group, keep their own individual quantity.
+    const isMergedGroup = siblingItems.length > 1;
+    for (const sibling of siblingItems) {
+      const quantity =
+        !isMergedGroup || sibling.id === editingItemId.value
+          ? editItemForm.value.quantity
+          : sibling.quantity;
+      const subtotal = quantity * editItemForm.value.unit_price;
+      const updateData = {
+        service_id: editItemForm.value.service_id || null,
+        description: editItemForm.value.description,
+        quantity,
+        unit_price: editItemForm.value.unit_price,
+        subtotal,
+        line_total: subtotal,
+        exempt_tax: editItemForm.value.exempt_tax,
       };
+
+      await SupabaseService.updateInvoiceItem(sibling.id, updateData);
+
+      const idx = invoiceItems.value.findIndex((i) => i.id === sibling.id);
+      if (idx !== -1) {
+        invoiceItems.value[idx] = { ...invoiceItems.value[idx], ...updateData };
+      }
     }
 
-    alert("Article modifié avec succès!");
+    alert(
+      siblingItems.length > 1
+        ? `Article modifié — taux appliqué aux ${siblingItems.length} entrées du groupe.`
+        : "Article modifié avec succès!",
+    );
     closeEditModal();
   } catch (error) {
     console.error("Erreur lors de la modification:", error);
@@ -1514,26 +1669,40 @@ const getServiceName = (
   return service ? service.name : null;
 };
 
+const getStepName = (stepId?: string | null): string | null => {
+  if (!stepId) return null;
+  return projectStepStore.getStepById(stepId)?.name || null;
+};
+
 const getItemDisplay = (item: InvoiceItem) => {
   const serviceName = getServiceName(item.service_id) || null;
   // If description is different from service name, it's a custom description
   const hasCustomDescription =
     item.description && item.description !== serviceName;
+  const timeEntry = item.time_entry_id
+    ? timeEntryStore.getTimeEntryById(item.time_entry_id)
+    : null;
+  const stepName = getStepName(timeEntry?.step_id);
   return {
     serviceName,
     description: hasCustomDescription ? item.description : null,
+    stepName,
   };
 };
 
 const importTimeEntries = async () => {
-  if (availableTimeEntries.value.length === 0 || !invoice.value) return;
+  if (selectedEntryIds.value.size === 0 || !invoice.value) return;
+
+  const entriesToImport = availableTimeEntries.value.filter((e) =>
+    selectedEntryIds.value.has(e.id),
+  );
 
   try {
     // Fetch the hourly rate for the project
     const hourlyRate = project.value?.hourly_rate || 0;
 
     // Create invoice items from selected entries, fetching fresh data to ensure service_id is included
-    for (const entry of availableTimeEntries.value) {
+    for (const entry of entriesToImport) {
       // Get fresh entry data to ensure all fields including service_id are present
       const freshEntry = timeEntryStore.getTimeEntryById(entry.id);
       const subtotal = entry.hours * hourlyRate;
@@ -1570,7 +1739,7 @@ const importTimeEntries = async () => {
     }
 
     alert(
-      `${availableTimeEntries.value.length} entrée(s) de temps importée(s) avec succès!`,
+      `${entriesToImport.length} entrée(s) de temps importée(s) avec succès!`,
     );
     closeImportModal();
   } catch (error) {
@@ -1618,24 +1787,15 @@ const sendInvoice = async () => {
     emailRecipientContacts.value = [];
   }
 
-  // Pre-fill email form with client info and first contact if available
+  // Pre-fill email form with the contact associated to the invoice
   const recipients: string[] = [];
 
-  // Add client email if available
-  if (client.value.email && client.value.email.trim()) {
+  // Use the invoice's associated contact email as the primary recipient
+  if (contact.value?.email && contact.value.email.trim()) {
+    recipients.push(contact.value.email);
+  } else if (client.value.email && client.value.email.trim()) {
+    // Fall back to client email if no contact is set
     recipients.push(client.value.email);
-  }
-
-  // Add first contact email if available
-  if (emailRecipientContacts.value.length > 0) {
-    const firstContactEmail = emailRecipientContacts.value[0].email;
-    if (
-      firstContactEmail &&
-      firstContactEmail.trim() &&
-      !recipients.includes(firstContactEmail)
-    ) {
-      recipients.push(firstContactEmail);
-    }
   }
 
   console.log("Initialized recipients:", recipients);

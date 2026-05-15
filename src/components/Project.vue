@@ -59,8 +59,16 @@
           />
         </div>
         <!-- Hourly Rate -->
-        <div>
-          <p class="text-gray-900">{{ project.hourly_rate }}$ / h</p>
+        <div class="flex items-center gap-2">
+          <input
+            v-model.number="hourlyRateFormData"
+            type="number"
+            min="0"
+            step="0.01"
+            @blur="saveProjectHourlyRate"
+            class="w-24 px-2 py-1 border border-gray-300 rounded text-gray-900 text-right focus:outline-none focus:border-blue-600"
+          />
+          <span class="text-gray-600 text-sm">$ / h</span>
         </div>
 
         <!-- Total Hours -->
@@ -197,6 +205,7 @@ const timeEntryStore = useTimeEntryStore();
 const projectStore = useProjectStore();
 
 const colorFormData = ref(props.project?.color || "#3B82F6");
+const hourlyRateFormData = ref(props.project?.hourly_rate || 0);
 const showAddStepModal = ref(false);
 const newStepData = ref({
   name: "",
@@ -209,6 +218,7 @@ watch(
   (newProject) => {
     if (newProject) {
       colorFormData.value = newProject.color || "#3B82F6";
+      hourlyRateFormData.value = newProject.hourly_rate || 0;
       loadProjectSteps(newProject.id);
     }
   },
@@ -258,6 +268,22 @@ const saveProjectColor = async () => {
     props.project.color = colorFormData.value;
   } catch (error) {
     console.error("Erreur lors de la mise à jour de la couleur:", error);
+  }
+};
+
+const saveProjectHourlyRate = async () => {
+  if (!props.project) return;
+  const rate = Number(hourlyRateFormData.value);
+  if (isNaN(rate) || rate < 0) return;
+
+  try {
+    await projectStore.updateProject(props.project.id, {
+      ...props.project,
+      hourly_rate: rate,
+    });
+    props.project.hourly_rate = rate;
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du taux horaire:", error);
   }
 };
 
