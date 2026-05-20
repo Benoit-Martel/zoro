@@ -673,98 +673,39 @@ export class SupabaseService {
     pdfBase64?: string;
   }): Promise<{ success: boolean; message: string }> {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
       // Convert Vue Proxy to plain array to ensure proper JSON serialization
       const plainRecipient = Array.isArray(data.recipient)
         ? [...data.recipient]
         : [];
 
-      const requestBody = {
-        invoiceId: data.invoiceId,
-        recipient: plainRecipient,
-        subject: data.subject,
-        message: data.message,
-        invoiceNumber: data.invoiceNumber,
-        pdfBase64: data.pdfBase64,
-      };
-
-      console.log("=== sendInvoiceEmail called ===");
-      console.log("Input data:", {
-        invoiceId: data.invoiceId,
-        recipient: data.recipient,
-        subject: data.subject,
-        invoiceNumber: data.invoiceNumber,
-        hasPdf: !!data.pdfBase64,
-      });
-
-      console.log("Request body to send:", {
-        ...requestBody,
-        pdfBase64Length: requestBody.pdfBase64
-          ? requestBody.pdfBase64.length
-          : 0,
-      });
-
-      const jsonBody = JSON.stringify(requestBody);
-      console.log("JSON stringified body length:", jsonBody.length);
-      console.log("JSON Body preview:", jsonBody.substring(0, 300));
-
-      // Create abort controller with 30 second timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-      try {
-        console.log(
-          "Making fetch request to:",
-          `${supabaseUrl}/functions/v1/send-invoice-email`,
-        );
-        console.log("Headers being sent:", {
-          "Content-Type": "application/json",
-          apikey: anonKey ? "***present***" : "MISSING",
-        });
-
-        const response = await fetch(
-          `${supabaseUrl}/functions/v1/send-invoice-email`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: anonKey,
-            },
-            body: jsonBody,
-            signal: controller.signal,
+      const { data: result, error } = await supabase.functions.invoke(
+        "send-invoice-email",
+        {
+          body: {
+            invoiceId: data.invoiceId,
+            recipient: plainRecipient,
+            subject: data.subject,
+            message: data.message,
+            invoiceNumber: data.invoiceNumber,
+            pdfBase64: data.pdfBase64,
           },
-        );
+        },
+      );
 
-        clearTimeout(timeoutId);
-        console.log("Edge function response received:");
-        console.log("  Status:", response.status);
-        console.log("  Status text:", response.statusText);
-
-        if (!response.ok) {
-          const errorData = await response.text();
-          console.error("Error response from Edge Function:", errorData);
-          throw new Error(
-            `Edge Function error (${response.status}): ${errorData}`,
-          );
-        }
-
-        const result = (await response.json()) as {
-          success: boolean;
-          message: string;
-        };
-        console.log("Success response:", result);
-        return result;
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        if (fetchError instanceof Error && fetchError.name === "AbortError") {
-          throw new Error(
-            "La demande a expiré. L'edge function prend trop de temps.",
-          );
-        }
-        throw fetchError;
+      if (error) {
+        // Try to extract the actual error body from the edge function response
+        let detail = error.message;
+        try {
+          const ctx = (error as any).context as Response | undefined;
+          if (ctx) {
+            const body = await ctx.text();
+            detail = body || detail;
+          }
+        } catch {}
+        throw new Error(detail);
       }
+
+      return result as { success: boolean; message: string };
     } catch (error) {
       console.error("Erreur lors de l'envoi de l'email:", error);
       throw new Error(

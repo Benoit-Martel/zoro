@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -191,12 +191,17 @@ serve(async (req) => {
       );
     }
 
+    const replyTo = Deno.env.get("REPLY_TO_EMAIL");
+
     const emailBody: Record<string, unknown> = {
-      from: "Zoro App <onboarding@resend.dev>",
+      from:
+        Deno.env.get("EMAIL_FROM") ||
+        "Benoit Martel <facturation@zoro.benoitmartel.com>",
       to: recipientList,
       subject: subject,
-      html: emailHtml,
-      text: `${message}\n\nFacture #${invoiceNumber}`,
+      html: `<p>${message || "Veuillez trouver ci-joint votre facture. N'hésitez pas à répondre à ce courriel pour toute question."}</p>`,
+      text: `${message || "Veuillez trouver ci-joint votre facture. N'hésitez pas à répondre à ce courriel pour toute question."}\n\nFacture #${invoiceNumber}`,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     };
 
     if (pdfBase64) {

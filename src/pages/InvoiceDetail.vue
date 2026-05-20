@@ -1802,8 +1802,8 @@ const sendInvoice = async () => {
 
   emailForm.value.recipients = recipients;
   emailForm.value.customRecipient = "";
-  emailForm.value.subject = `Facture #${invoice.value.invoice_number}`;
-  emailForm.value.message = "Veuillez trouver ci-joint votre facture.";
+  emailForm.value.subject = `Projet ${project.value?.name || ""} - Facture #${invoice.value.invoice_number} de Benoit Martel`;
+  emailForm.value.message = "Bonjour! Veuillez trouver ci-joint votre facture.";
 
   showEmailModal.value = true;
 };
