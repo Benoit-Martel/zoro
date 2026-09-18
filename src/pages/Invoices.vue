@@ -1,4 +1,5 @@
 <template>
+  <PageLoad :loading="pageLoading" :error="pageError" @retry="reloadPage">
   <div class="max-w-6xl mx-auto px-4 py-8">
     <!-- Invoice Generator Modal -->
     <div
@@ -327,10 +328,13 @@
       </div>
     </div>
   </div>
+  </PageLoad>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import PageLoad from "../components/PageLoad.vue";
+import { usePageLoad } from "../composables/usePageLoad";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { ChevronUp, ChevronDown, Trash2 } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
@@ -362,22 +366,23 @@ const invoiceForm = ref({
 
 const previewData = ref<Invoice | null>(null);
 
-onMounted(async () => {
+const { pageLoading, pageError, reloadPage } = usePageLoad(async () => {
   await projectStore.fetchProjects();
+  if (projectStore.error) throw new Error(projectStore.error);
   await loadSavedInvoices();
 });
 
 const loadSavedInvoices = async () => {
-  try {
-    savedInvoices.value = await SupabaseService.getInvoices();
-    // Load invoice items for each invoice to calculate totals
-    for (const invoice of savedInvoices.value) {
-      const items = await SupabaseService.getInvoiceItems(invoice.id);
-      invoiceItems.value.set(invoice.id, items);
-    }
-  } catch (error) {
-    console.error("Erreur lors du chargement des factures:", error);
-  }
+  const invoices = await SupabaseService.getInvoices();
+  const items = await Promise.all(
+    invoices.map(async (invoice) => [
+      invoice.id,
+      await SupabaseService.getInvoiceItems(invoice.id),
+    ] as const),
+  );
+  // Publish one complete snapshot, including on refresh after saving.
+  invoiceItems.value = new Map(items);
+  savedInvoices.value = invoices;
 };
 
 const generateInvoice = async () => {

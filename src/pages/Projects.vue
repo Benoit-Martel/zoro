@@ -1,4 +1,5 @@
 <template>
+  <PageLoad :loading="pageLoading" :error="pageError" @retry="reloadPage">
   <div class="max-w-6xl mx-auto px-4 py-8">
     <div class="flex gap-4 items-center mb-8">
       <div class="flex-1 flex gap-4 items-center">
@@ -272,10 +273,13 @@
       @delete="handleProjectDelete"
     />
   </div>
+  </PageLoad>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import PageLoad from "../components/PageLoad.vue";
+import { usePageLoad } from "../composables/usePageLoad";
+import { ref, computed } from "vue";
 import { Clock, X, ChevronUp, ChevronDown } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
 import { useClientStore } from "../stores/clientStore";
@@ -362,13 +366,17 @@ const getSortIndicator = (column: "name" | "client" | "hours") => {
   return sortDirection.value === "asc" ? "asc" : "desc";
 };
 
-onMounted(async () => {
+const { pageLoading, pageError, reloadPage } = usePageLoad(async () => {
   await clientStore.fetchClients();
+  if (clientStore.error) throw new Error(clientStore.error);
   await projectStore.fetchProjects();
+  if (projectStore.error) throw new Error(projectStore.error);
   await timeEntryStore.fetchTimeEntries();
+  if (timeEntryStore.error) throw new Error(timeEntryStore.error);
   // Fetch all contacts for all clients
   for (const client of clientStore.clients) {
     await contactStore.fetchContacts(client.id);
+    if (contactStore.error) throw new Error(contactStore.error);
   }
 });
 

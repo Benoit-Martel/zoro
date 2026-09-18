@@ -1,4 +1,5 @@
 <template>
+  <PageLoad :loading="pageLoading" :error="pageError" @retry="reloadPage">
   <div v-if="invoice" class="invoice-container">
     <!-- Top Buttons with Icons -->
     <div class="flex justify-center gap-4 mt-6 mb-6 px-4 flex-wrap">
@@ -378,7 +379,6 @@
                 placeholder="Décrivez l'article..."
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
                 rows="3"
-                required
               ></textarea>
             </div>
 
@@ -780,9 +780,6 @@
               <th class="text-left py-3 px-4 font-bold text-gray-900">
                 Services/Produits
               </th>
-              <th class="text-left py-3 px-4 font-bold text-gray-900">
-                Description
-              </th>
               <th
                 class="text-center py-3 px-4 min-w-[100px] font-bold text-gray-900"
               >
@@ -800,33 +797,34 @@
               <th class="text-right py-3 px-4 font-bold text-gray-900">
                 Sous-total
               </th>
+              <th
+                class="text-center py-3 px-4 font-bold text-gray-900 no-print"
+              >
+                <!-- Delete column header -->
+              </th>
             </tr>
           </thead>
           <tbody>
             <template
-              v-for="(items, service) in itemsDisplayForTable"
-              :key="service"
+              v-for="group in itemsDisplayForTable"
+              :key="group.id ?? 'no-step'"
             >
+              <tr class="bg-gray-100 border-b border-gray-200">
+                <th :colspan="hasAnyTaxExemptItems ? 7 : 6" scope="rowgroup" class="text-left py-3 px-4 font-bold text-gray-900">
+                  {{ group.name }}
+                </th>
+                <td class="no-print"></td>
+              </tr>
               <!-- Service Items -->
               <tr
-                v-for="(item, index) in items"
-                :key="index"
+                v-for="item in group.items"
+                :key="item.id"
                 @click="openEditModal(item)"
                 class="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition group relative"
               >
                 <td class="py-3 px-4 text-gray-900 font-semibold">
-                  {{ getItemDisplay(item).serviceName }}
-                </td>
-                <td class="w-48 py-3 px-4 text-gray-900">
-                  <p v-if="getItemDisplay(item).description">
-                    {{ getItemDisplay(item).description }}
-                  </p>
-                  <p
-                    v-if="getItemDisplay(item).stepName"
-                    class="text-sm text-blue-600"
-                  >
-                    {{ getItemDisplay(item).stepName }}
-                  </p>
+                  {{ getServiceName(item.service_id) || "Sans service" }}
+                  <p v-if="item.description" class="invoice-item-description text-xs font-normal text-gray-600 mt-1 whitespace-pre-line">{{ item.description }}</p>
                 </td>
                 <td class="py-3 px-4 text-center text-gray-900">
                   {{ formatCurrency(item.unit_price) }}
@@ -861,16 +859,16 @@
                 <td class="py-3 px-4 text-right text-gray-900">
                   {{ formatCurrency(item.subtotal) }}
                 </td>
-                <!-- Delete Button Outside Table -->
-                <div class="text-center absolute -right-6 top-3 no-print">
+                <!-- Delete Button -->
+                <td class="relative no-print">
                   <button
-                    @click.stop="deleteInvoiceItem(item.id)"
-                    class="text-red-600"
+                    @click.stop="deleteInvoiceItem(item)"
+                    class="text-red-600 hover:text-red-800 transition"
                     title="Supprimer cet article"
                   >
                     <X :size="20" />
                   </button>
-                </div>
+                </td>
               </tr>
             </template>
           </tbody>
@@ -878,7 +876,7 @@
             <!-- Taxable Subtotal Row -->
             <tr class="border-t-2 border-gray-300">
               <td
-                :colspan="hasAnyTaxExemptItems ? 7 : 6"
+                :colspan="hasAnyTaxExemptItems ? 6 : 5"
                 class="text-right font-bold text-gray-900 py-3 px-4"
               >
                 Sous-total:
@@ -886,13 +884,13 @@
               <td class="text-right font-bold text-gray-900 py-3 px-4 w-32">
                 {{ formatCurrency(taxableSubtotal) }}
               </td>
-              <td></td>
+              <td class="no-print"></td>
             </tr>
 
             <!-- TPS Row -->
             <tr class="border-b border-t border-gray-200">
               <td
-                :colspan="hasAnyTaxExemptItems ? 7 : 6"
+                :colspan="hasAnyTaxExemptItems ? 6 : 5"
                 class="text-right font-semibold text-gray-900 py-3 px-4"
               >
                 <div class="flex justify-end">
@@ -905,13 +903,13 @@
               <td class="text-right text-gray-900 py-3 px-4">
                 {{ formatCurrency(tpsAmount) }}
               </td>
-              <td></td>
+              <td class="no-print"></td>
             </tr>
 
             <!-- TVQ Row -->
             <tr class="border-b border-gray-200">
               <td
-                :colspan="hasAnyTaxExemptItems ? 7 : 6"
+                :colspan="hasAnyTaxExemptItems ? 6 : 5"
                 class="text-right font-semibold text-gray-900 py-3 px-4"
               >
                 <div class="flex justify-end">
@@ -924,13 +922,13 @@
               <td class="text-right text-gray-900 py-3 px-4">
                 {{ formatCurrency(tvqAmount) }}
               </td>
-              <td></td>
+              <td class="no-print"></td>
             </tr>
 
             <!-- Tax-Exempt Subtotal Row -->
             <tr v-if="taxExemptSubtotal > 0" class="border-b border-gray-200">
               <td
-                :colspan="hasAnyTaxExemptItems ? 7 : 6"
+                :colspan="hasAnyTaxExemptItems ? 6 : 5"
                 class="text-right font-bold text-gray-900 py-3 px-4"
               >
                 Sous-total (articles exonérés):
@@ -938,13 +936,13 @@
               <td class="text-right font-bold text-gray-900 py-3 px-4">
                 {{ formatCurrency(taxExemptSubtotal) }}
               </td>
-              <td></td>
+              <td class="no-print"></td>
             </tr>
 
             <!-- Grand Total Row -->
             <tr class="border-t-2 border-green-300">
               <td
-                :colspan="hasAnyTaxExemptItems ? 7 : 6"
+                :colspan="hasAnyTaxExemptItems ? 6 : 5"
                 class="text-right text-lg font-bold text-gray-900 py-3 px-4"
               >
                 TOTAL:
@@ -952,7 +950,7 @@
               <td class="text-right text-lg font-bold text-gray-900 py-3 px-4">
                 {{ formatCurrency(grandTotal) }}
               </td>
-              <td></td>
+              <td class="no-print"></td>
             </tr>
           </tfoot>
         </table>
@@ -965,10 +963,14 @@
       </div>
     </div>
   </div>
+  </PageLoad>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { groupInvoiceItems, type InvoiceDisplayItem } from "../utils/invoiceDisplay";
+import PageLoad from "../components/PageLoad.vue";
+import { usePageLoad } from "../composables/usePageLoad";
+import { computed, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { X, Download, Plus, Printer, Send, FileText } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
@@ -1183,59 +1185,24 @@ const availableTimeEntries = computed(() => {
   return entries;
 });
 
-// Group invoice items by service for display
-const itemsGroupedByService = computed(() => {
-  const grouped: { [key: string]: InvoiceItem[] } = {};
+const itemsDisplayForTable = computed(() =>
+  groupInvoiceItems(invoiceItems.value, (item) => {
+    const entry = item.time_entry_id
+      ? timeEntryStore.getTimeEntryById(item.time_entry_id)
+      : null;
+    const stepId = entry?.step_id || null;
+    // Older imports stored the service name when the entry had no description.
+    const legacyFallback = entry && !entry.description?.trim()
+      && item.description === getServiceName(item.service_id);
+    return {
+      stepId,
+      stepName: getStepName(stepId) || "Sans ?tape",
+      description: legacyFallback ? "" : (item.description || "").trim(),
+    };
+  }),
+);
 
-  invoiceItems.value.forEach((item) => {
-    const serviceName = getServiceName(item.service_id) || "Sans service";
-    if (!grouped[serviceName]) {
-      grouped[serviceName] = [];
-    }
-    grouped[serviceName].push(item);
-  });
-
-  return grouped;
-});
-
-// Display items grouped by service and merged by description
-const itemsDisplayForTable = computed(() => {
-  const grouped: { [key: string]: InvoiceItem[] } = {};
-  const mergedMap = new Map<string, InvoiceItem>();
-
-  invoiceItems.value.forEach((item) => {
-    const serviceName = getServiceName(item.service_id) || "Sans service";
-    const mergeKey = `${serviceName}|${item.description}`;
-
-    if (!grouped[serviceName]) {
-      grouped[serviceName] = [];
-    }
-
-    if (mergedMap.has(mergeKey)) {
-      // Item with same service and description already exists - merge quantities
-      const mergedItem = mergedMap.get(mergeKey)!;
-      mergedItem.quantity += item.quantity;
-      mergedItem.subtotal = mergedItem.quantity * mergedItem.unit_price;
-      mergedItem.tax_1_amount += item.tax_1_amount;
-      mergedItem.tax_2_amount += item.tax_2_amount;
-      mergedItem.discount_amount += item.discount_amount;
-      mergedItem.line_total =
-        mergedItem.subtotal +
-        mergedItem.tax_1_amount +
-        mergedItem.tax_2_amount -
-        mergedItem.discount_amount;
-    } else {
-      // Create a copy for this item to avoid mutating the original
-      const itemCopy: InvoiceItem = { ...item };
-      grouped[serviceName].push(itemCopy);
-      mergedMap.set(mergeKey, itemCopy);
-    }
-  });
-
-  return grouped;
-});
-
-onMounted(async () => {
+const { pageLoading, pageError, reloadPage } = usePageLoad(async () => {
   const invoiceId = route.params.id as string;
   if (!invoiceId) {
     router.push("/invoices");
@@ -1255,7 +1222,9 @@ onMounted(async () => {
     // Fetch project and client data
     if (invoice.value.project_id) {
       await projectStore.fetchProjects();
+      if (projectStore.error) throw new Error(projectStore.error);
       await clientStore.fetchClients();
+      if (clientStore.error) throw new Error(clientStore.error);
 
       // Set initial selected values
       selectedProjectId.value = invoice.value.project_id;
@@ -1267,6 +1236,7 @@ onMounted(async () => {
         }
         // Fetch contacts for this client
         await contactStore.fetchContacts(proj.client_id);
+        if (contactStore.error) throw new Error(contactStore.error);
       }
 
       // Fetch invoice items from the database
@@ -1274,16 +1244,19 @@ onMounted(async () => {
 
       // Fetch services for dropdown/display
       await serviceStore.fetchServices();
+      if (serviceStore.error) throw new Error(serviceStore.error);
 
       // Fetch time entries for import functionality
       await timeEntryStore.fetchTimeEntries();
+      if (timeEntryStore.error) throw new Error(timeEntryStore.error);
       // Fetch project steps
       await projectStepStore.fetchSteps(invoice.value.project_id);
+      if (projectStepStore.error) throw new Error(projectStepStore.error);
       console.log(invoiceItems.value);
     }
   } catch (error) {
     console.error("Erreur lors du chargement de la facture:", error);
-    router.push("/invoices");
+    throw error;
   }
 });
 
@@ -1318,21 +1291,12 @@ const generateInvoicePDF = async (): Promise<string> => {
     throw new Error("Invoice content not found");
   }
 
-  // Temporarily show print-only elements and hide no-print elements
-  const printOnlyElements = invoiceContent.querySelectorAll(".print-only");
-  const noPrintElements = invoiceContent.querySelectorAll(".no-print");
-
-  // Store original display values
-  const originalDisplay = new Map<Element, string>();
-
-  printOnlyElements.forEach((el) => {
-    originalDisplay.set(el, (el as HTMLElement).style.display);
-    (el as HTMLElement).style.display = "block";
-  });
-
-  noPrintElements.forEach((el) => {
-    originalDisplay.set(el, (el as HTMLElement).style.display);
-    (el as HTMLElement).style.display = "none";
+  // Export a separate copy without action cells. Hidden table cells can
+  // otherwise leave layout artifacts in the canvas/PDF renderer.
+  const pdfContent = invoiceContent.cloneNode(true) as HTMLElement;
+  pdfContent.querySelectorAll(".no-print").forEach((element) => element.remove());
+  pdfContent.querySelectorAll<HTMLElement>(".print-only").forEach((element) => {
+    element.style.display = "block";
   });
 
   // Common PDF options
@@ -1350,30 +1314,11 @@ const generateInvoicePDF = async (): Promise<string> => {
     jsPDF: { orientation: "portrait", unit: "in", format: "letter" },
   };
 
-  return new Promise<string>((resolve, reject) => {
-    html2pdf()
-      .set(options)
-      .from(invoiceContent)
-      .outputPdf("dataurlstring")
-      .then((pdfDataUrl: string) => {
-        // Extract base64 from data URL
-        const base64 = pdfDataUrl.split(",")[1];
-
-        // Restore original display values
-        originalDisplay.forEach((value, el) => {
-          (el as HTMLElement).style.display = value;
-        });
-
-        resolve(base64);
-      })
-      .catch((error: Error) => {
-        // Restore original display values on error too
-        originalDisplay.forEach((value, el) => {
-          (el as HTMLElement).style.display = value;
-        });
-        reject(error);
-      });
-  });
+  const pdfDataUrl: string = await html2pdf()
+    .set(options)
+    .from(pdfContent)
+    .outputPdf("dataurlstring");
+  return pdfDataUrl.split(",")[1];
 };
 
 const downloadPDF = async () => {
@@ -1537,20 +1482,12 @@ const closeCustomItemModal = () => {
 };
 
 // Edit Item Modal functions
-// Store the original service_id+description to find sibling items in a merged group
-const editingOriginalKey = ref<{
-  service_id: string | null;
-  description: string;
-} | null>(null);
+const editingSourceIds = ref<string[]>([]);
 
-const openEditModal = (item: InvoiceItem) => {
+const openEditModal = (item: InvoiceDisplayItem) => {
   editingItemId.value = item.id;
-  // Find the actual underlying item (not the display-merged copy) to get the real unit_price
-  const actualItem = invoiceItems.value.find((i) => i.id === item.id) || item;
-  editingOriginalKey.value = {
-    service_id: actualItem.service_id || null,
-    description: actualItem.description,
-  };
+  editingSourceIds.value = [...item.sourceIds];
+  const actualItem = item;
   editItemForm.value = {
     service_id: actualItem.service_id || "",
     description: actualItem.description,
@@ -1564,35 +1501,29 @@ const openEditModal = (item: InvoiceItem) => {
 const closeEditModal = () => {
   showEditItemModal.value = false;
   editingItemId.value = null;
-  editingOriginalKey.value = null;
+  editingSourceIds.value = [];
 };
 
 const updateInvoiceItem = async () => {
-  if (!editingItemId.value || !editItemForm.value.description) {
+  if (!editingItemId.value) {
     alert("Veuillez remplir tous les champs requis");
     return;
   }
 
   try {
-    // Find all items in the same merge group (same original service + description)
-    const origKey = editingOriginalKey.value;
-    const siblingItems = origKey
-      ? invoiceItems.value.filter(
-          (i) =>
-            (i.service_id || null) === origKey.service_id &&
-            i.description === origKey.description,
-        )
-      : invoiceItems.value.filter((i) => i.id === editingItemId.value);
-
-    // Update every item in the group (unit_price, service, description, tax exemption).
-    // For the primary item being edited, apply the form quantity.
-    // For other siblings in a merged group, keep their own individual quantity.
-    const isMergedGroup = siblingItems.length > 1;
-    for (const sibling of siblingItems) {
-      const quantity =
-        !isMergedGroup || sibling.id === editingItemId.value
-          ? editItemForm.value.quantity
-          : sibling.quantity;
+    const siblingItems = invoiceItems.value.filter((item) =>
+      editingSourceIds.value.includes(item.id),
+    );
+    const originalQuantity = siblingItems.reduce((sum, item) => sum + item.quantity, 0);
+    let remainingQuantity = editItemForm.value.quantity;
+    for (const [index, sibling] of siblingItems.entries()) {
+      // Distribute the displayed total without counting merged hours twice.
+      const quantity = index === siblingItems.length - 1
+        ? remainingQuantity
+        : originalQuantity > 0
+          ? editItemForm.value.quantity * sibling.quantity / originalQuantity
+          : editItemForm.value.quantity / siblingItems.length;
+      remainingQuantity -= quantity;
       const subtotal = quantity * editItemForm.value.unit_price;
       const updateData = {
         service_id: editItemForm.value.service_id || null,
@@ -1674,22 +1605,6 @@ const getStepName = (stepId?: string | null): string | null => {
   return projectStepStore.getStepById(stepId)?.name || null;
 };
 
-const getItemDisplay = (item: InvoiceItem) => {
-  const serviceName = getServiceName(item.service_id) || null;
-  // If description is different from service name, it's a custom description
-  const hasCustomDescription =
-    item.description && item.description !== serviceName;
-  const timeEntry = item.time_entry_id
-    ? timeEntryStore.getTimeEntryById(item.time_entry_id)
-    : null;
-  const stepName = getStepName(timeEntry?.step_id);
-  return {
-    serviceName,
-    description: hasCustomDescription ? item.description : null,
-    stepName,
-  };
-};
-
 const importTimeEntries = async () => {
   if (selectedEntryIds.value.size === 0 || !invoice.value) return;
 
@@ -1708,13 +1623,11 @@ const importTimeEntries = async () => {
       const subtotal = entry.hours * hourlyRate;
 
       // Create item without id - let Supabase generate it
-      const serviceName =
-        getServiceName(freshEntry?.service_id || entry.service_id) || "Service";
       const itemData = {
         invoice_id: invoice.value.id,
         time_entry_id: entry.id || null,
         description:
-          freshEntry?.description || entry.description || serviceName,
+          freshEntry?.description ?? entry.description ?? "",
         quantity: entry.hours,
         unit_price: hourlyRate,
         subtotal: subtotal,
@@ -1748,18 +1661,18 @@ const importTimeEntries = async () => {
   }
 };
 
-const deleteInvoiceItem = async (itemId: string) => {
-  if (!itemId) return;
+const deleteInvoiceItem = async (row: InvoiceDisplayItem) => {
+  if (!row.sourceIds.length) return;
 
   if (!confirm("Êtes-vous sûr de vouloir supprimer cet article?")) {
     return;
   }
 
   try {
-    await SupabaseService.deleteInvoiceItem(itemId);
-    invoiceItems.value = invoiceItems.value.filter(
-      (item) => item.id !== itemId,
-    );
+    for (const itemId of row.sourceIds) {
+      await SupabaseService.deleteInvoiceItem(itemId);
+      invoiceItems.value = invoiceItems.value.filter((item) => item.id !== itemId);
+    }
     alert("Article supprimé avec succès!");
   } catch (error) {
     console.error("Erreur lors de la suppression:", error);
@@ -1989,6 +1902,11 @@ const submitEmailInvoice = async () => {
   }
 }
 
+.invoice-content .invoice-item-description {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .invoice-content th {
   font-size: 0.75rem;
 }
@@ -2063,11 +1981,6 @@ const submitEmailInvoice = async () => {
   button[title="Supprimer cet article"],
   [class*="text-red"] {
     display: none !important;
-  }
-
-  /* Hide action column */
-  tfoot td:last-child {
-    display: none;
   }
 
   .invoice-container {

@@ -1,4 +1,5 @@
 <template>
+  <PageLoad :loading="pageLoading" :error="pageError" @retry="reloadPage">
   <div class="max-w-6xl mx-auto px-4 py-8">
     <!-- Calendar Section -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -344,10 +345,13 @@
       {{ timeEntryStore.error }}
     </div>
   </div>
+  </PageLoad>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import PageLoad from "../components/PageLoad.vue";
+import { usePageLoad } from "../composables/usePageLoad";
+import { ref, computed } from "vue";
 import { useRoute } from "vue-router";
 import { ChevronLeft, ChevronRight } from "lucide-vue-next";
 import { useProjectStore } from "../stores/projectStore";
@@ -414,10 +418,13 @@ const activeProjects = computed(() => {
   return projectStore.projects.filter((p) => p.status === "active");
 });
 
-onMounted(async () => {
+const { pageLoading, pageError, reloadPage } = usePageLoad(async () => {
   await projectStore.fetchProjects();
+  if (projectStore.error) throw new Error(projectStore.error);
   await serviceStore.fetchServices();
+  if (serviceStore.error) throw new Error(serviceStore.error);
   await loadEntries();
+  if (timeEntryStore.error) throw new Error(timeEntryStore.error);
 });
 
 const loadEntries = async () => {

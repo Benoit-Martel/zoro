@@ -597,7 +597,7 @@ export class SupabaseService {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     // Store the recovery token
-    await supabase.from("zoro_password_reset_tokens").insert([
+    const { error: tokenError } = await supabase.from("zoro_password_reset_tokens").insert([
       {
         user_id: user.id,
         token,
@@ -605,13 +605,40 @@ export class SupabaseService {
       },
     ]);
 
-    // In production, you would send an email here with the recovery link
-    // For now, log the recovery link (you should implement email sending)
-    const recoveryLink = `${window.location.origin}/zoro/reset-password?token=${token}`;
-    console.log("Recovery link:", recoveryLink);
+    if (tokenError) {
+      throw new Error("Impossible de créer le lien de réinitialisation");
+    }
 
-    // TODO: Send email with recovery link
-    // You can use a service like SendGrid, Mailgun, or Supabase Edge Functions
+    // Send password reset email via Edge Function
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke(
+        "send-password-reset-email",
+        {
+          body: {
+            email,
+            resetToken: token,
+          },
+        },
+      );
+
+      if (invokeError) {
+        console.error(
+          "Failed to invoke password reset email function:",
+          invokeError,
+        );
+        throw new Error("Échec de l'envoi de l'email de réinitialisation");
+      }
+
+      if (!data?.success) {
+        console.error("Password reset email function returned error:", data);
+        throw new Error(data?.message || "Échec de l'envoi de l'email");
+      }
+
+      console.log("Password reset email sent successfully to:", email);
+    } catch (err) {
+      console.error("Error sending password reset email:", err);
+      throw err;
+    }
   }
 
   static async updatePassword(password: string, token?: string) {

@@ -1,4 +1,5 @@
 <template>
+  <PageLoad :loading="pageLoading" :error="pageError" @retry="reloadPage">
   <div class="max-w-6xl mx-auto px-4 py-8">
     <div class="flex gap-4 items-center mb-8">
       <input
@@ -464,10 +465,13 @@
       {{ clientStore.error }}
     </div>
   </div>
+  </PageLoad>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import PageLoad from "../components/PageLoad.vue";
+import { usePageLoad } from "../composables/usePageLoad";
+import { ref, computed } from "vue";
 import { Edit, X, Plus, ChevronUp, ChevronDown } from "lucide-vue-next";
 import { useClientStore } from "../stores/clientStore";
 import { useContactStore } from "../stores/contactStore";
@@ -550,8 +554,9 @@ const editContactFormData = ref({
   email: "",
 });
 
-onMounted(async () => {
+const { pageLoading, pageError, reloadPage } = usePageLoad(async () => {
   await clientStore.fetchClients();
+  if (clientStore.error) throw new Error(clientStore.error);
 });
 
 const submitForm = async () => {
