@@ -42,6 +42,14 @@ export const useTimeEntryStore = defineStore("timeEntries", () => {
     }
   };
 
+  const fetchTimeEntriesByIds = async (ids: string[]) => {
+    const fetched = await SupabaseService.getTimeEntriesByIds(ids);
+    const byId = new Map(entries.value.map((entry) => [entry.id, entry]));
+    fetched.forEach((entry) => byId.set(entry.id, entry));
+    entries.value = [...byId.values()];
+    return fetched;
+  };
+
   const addTimeEntry = async (
     entry: Omit<TimeEntry, "id" | "created_at" | "updated_at">,
   ) => {
@@ -110,6 +118,7 @@ export const useTimeEntryStore = defineStore("timeEntries", () => {
     loading,
     error,
     fetchTimeEntries,
+    fetchTimeEntriesByIds,
     fetchProjectTimeEntries,
     addTimeEntry,
     updateTimeEntry,

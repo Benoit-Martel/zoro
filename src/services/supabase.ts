@@ -190,6 +190,20 @@ export class SupabaseService {
     return data || [];
   }
 
+  static async getTimeEntriesByIds(ids: string[]): Promise<TimeEntry[]> {
+    const entries: TimeEntry[] = [];
+    const uniqueIds = [...new Set(ids)];
+    for (let offset = 0; offset < uniqueIds.length; offset += 100) {
+      const { data, error } = await supabase
+        .from("zoro_time_entries")
+        .select("*")
+        .in("id", uniqueIds.slice(offset, offset + 100));
+      if (error) throw error;
+      entries.push(...(data || []));
+    }
+    return entries;
+  }
+
   static async createTimeEntry(
     entry: Omit<TimeEntry, "id" | "created_at" | "updated_at">,
   ): Promise<TimeEntry> {

@@ -351,6 +351,31 @@
           @click.stop
         >
           <form @submit.prevent="updateInvoiceItem" class="space-y-4">
+            <p v-if="loadingEditEntries" role="status" class="text-sm text-gray-600">Chargement des étapes…</p>
+            <p v-if="editEntriesError" role="alert" class="text-sm text-red-600">{{ editEntriesError }}</p>
+            <fieldset :disabled="savingItem || loadingEditEntries" class="space-y-4">
+            <div v-if="editingTimeEntries.length" class="space-y-3">
+              <p class="font-bold text-gray-700">Étapes des entrées de temps</p>
+              <div v-for="entry in editingTimeEntries" :key="entry.id">
+                <label :for="`entry-step-${entry.id}`" class="block text-sm text-gray-700 mb-1">
+                  {{ formatDate(entry.date) }} — {{ entry.hours }}h
+                  <span v-if="entry.description" class="block text-gray-500">{{ entry.description }}</span>
+                </label>
+                <select
+                  :id="`entry-step-${entry.id}`"
+                  v-model="editedEntrySteps[entry.id]"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
+                >
+                  <option value="">Sans étape</option>
+                  <option
+                    v-for="step in editProjectSteps.filter((step) => step.project_id === entry.project_id)"
+                    :key="step.id"
+                    :value="step.id"
+                  >{{ step.name }}</option>
+                </select>
+              </div>
+              <p class="text-xs text-gray-500">Les changements seront aussi appliqués aux entrées dans la feuille de temps.</p>
+            </div>
             <!-- Service Dropdown -->
             <div>
               <label class="block text-gray-700 font-bold mb-2">Service</label>
@@ -441,9 +466,10 @@
             <div class="flex gap-4 mt-6">
               <button
                 type="submit"
+                :disabled="!!editEntriesError"
                 class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition"
               >
-                Enregistrer les modifications
+                {{ savingItem ? "Enregistrement…" : "Enregistrer les modifications" }}
               </button>
               <button
                 type="button"
@@ -453,6 +479,7 @@
                 Annuler
               </button>
             </div>
+            </fieldset>
           </form>
         </div>
       </div>
@@ -810,21 +837,40 @@
               :key="group.id ?? 'no-step'"
             >
               <tr class="bg-gray-100 border-b border-gray-200">
-                <th :colspan="hasAnyTaxExemptItems ? 7 : 6" scope="rowgroup" class="text-left py-3 px-4 font-bold text-gray-900">
-                  {{ group.name }}
+                <th :colspan="hasAnyTaxExemptItems ? 7 : 6" scope="rowgroup" class="invoice-step-header text-left py-3 px-4 font-bold text-gray-900">
+                  {{ group.id ? group.name : "" }}
                 </th>
                 <td class="no-print"></td>
               </tr>
               <!-- Service Items -->
+              <template v-for="item in group.items" :key="item.id">
               <tr
-                v-for="item in group.items"
-                :key="item.id"
                 @click="openEditModal(item)"
                 class="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition group relative"
               >
                 <td class="py-3 px-4 text-gray-900 font-semibold">
+                  <div class="flex items-start">
+                  <span class="no-print w-14 shrink-0">
+                  <button
+                    v-if="item.sourceIds.length > 1"
+                    type="button"
+                    class="no-print inline-flex align-middle mr-2 p-1 rounded text-blue-600 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2"
+                    :aria-expanded="expandedItemIds.has(item.id)"
+                    :aria-controls="`invoice-entries-${item.id}`"
+                    :aria-label="`${expandedItemIds.has(item.id) ? 'Masquer' : 'Afficher'} les ${item.sourceIds.length} entrées regroupées`"
+                    :title="`${item.sourceIds.length} entrées regroupées`"
+                    @click.stop="toggleExpandedItem(item.id)"
+                  >
+                    <span class="text-xs font-medium whitespace-nowrap" aria-hidden="true">
+                      {{ item.sourceIds.length }} {{ expandedItemIds.has(item.id) ? "▼" : "▶" }}
+                    </span>
+                  </button>
+                  </span>
+                  <div class="min-w-0">
                   {{ getServiceName(item.service_id) || "Sans service" }}
                   <p v-if="item.description" class="invoice-item-description text-xs font-normal text-gray-600 mt-1 whitespace-pre-line">{{ item.description }}</p>
+                  </div>
+                  </div>
                 </td>
                 <td class="py-3 px-4 text-center text-gray-900">
                   {{ formatCurrency(item.unit_price) }}
@@ -870,6 +916,39 @@
                   </button>
                 </td>
               </tr>
+              <tr
+                v-if="item.sourceIds.length > 1 && expandedItemIds.has(item.id)"
+                :id="`invoice-entries-${item.id}`"
+                class="no-print bg-blue-50 border-b border-blue-100"
+              >
+                <td :colspan="hasAnyTaxExemptItems ? 8 : 7" class="px-4 py-3">
+                  <p class="text-xs text-gray-600 mb-2 ml-6">Entrées regroupées — cliquez sur une entrée pour la modifier.</p>
+                  <div class="space-y-1 ml-6">
+                    <button
+                      v-for="source in getSourceItems(item)"
+                      :key="source.id"
+                      type="button"
+                      class="w-full flex items-center justify-between gap-4 rounded border border-blue-100 bg-white px-3 py-2 text-left text-sm hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                      @click.stop="openEditModal(source)"
+                    >
+                      <span>
+                        <span class="font-semibold">{{ getServiceName(source.service_id) || "Sans service" }}</span>
+                        <span v-if="getItemEntry(source)" class="block text-xs text-gray-500">
+                          {{ formatDate(getItemEntry(source)!.date) }}
+                          — {{ getStepName(getItemEntry(source)!.step_id) || "Sans étape" }}
+                        </span>
+                        <span v-if="source.description" class="block text-xs text-gray-600 whitespace-pre-line">{{ source.description }}</span>
+                      </span>
+                      <span class="shrink-0 text-right">
+                        <span class="block">{{ source.quantity }} × {{ formatCurrency(source.unit_price) }}</span>
+                        <span class="block font-semibold">{{ formatCurrency(source.subtotal) }}</span>
+                        <span class="block text-xs text-blue-600">Modifier</span>
+                      </span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              </template>
             </template>
           </tbody>
           <tfoot>
@@ -957,7 +1036,7 @@
       </div>
       <!-- Footer -->
       <div
-        class="border-t pt-8 text-center text-gray-600 text-sm bottom-0 absolute w-full mb-12"
+        class="invoice-footer border-t pt-8 text-center text-gray-600 text-sm w-full"
       >
         <p>Merci de votre confiance!</p>
       </div>
@@ -979,7 +1058,7 @@ import { useContactStore } from "../stores/contactStore";
 import { useTimeEntryStore } from "../stores/timeEntryStore";
 import { useServiceStore } from "../stores/serviceStore";
 import { useProjectStepStore } from "../stores/projectStepStore";
-import type { Invoice, InvoiceItem } from "../types";
+import type { Invoice, InvoiceItem, ProjectStep } from "../types";
 import { SupabaseService } from "../services/supabase";
 import html2pdf from "html2pdf.js";
 
@@ -994,6 +1073,22 @@ const projectStepStore = useProjectStepStore();
 
 const invoice = ref<Invoice | null>(null);
 const invoiceItems = ref<InvoiceItem[]>([]);
+const expandedItemIds = ref(new Set<string>());
+const toggleExpandedItem = (id: string) => {
+  const expanded = new Set(expandedItemIds.value);
+  if (expanded.has(id)) expanded.delete(id);
+  else expanded.add(id);
+  expandedItemIds.value = expanded;
+};
+const getSourceItems = (item: InvoiceDisplayItem): InvoiceDisplayItem[] => {
+  const ids = new Set(item.sourceIds);
+  return invoiceItems.value
+    .filter((source) => ids.has(source.id))
+    .map((source) => ({ ...source, sourceIds: [source.id] }));
+};
+const getItemEntry = (item: InvoiceItem) => item.time_entry_id
+  ? timeEntryStore.getTimeEntryById(item.time_entry_id)
+  : undefined;
 const selectedClientId = ref<string>("");
 const selectedProjectId = ref<string>("");
 const selectedContactId = ref<string>("");
@@ -1048,6 +1143,11 @@ const customItemForm = ref({
 // Edit Item Modal refs
 const showEditItemModal = ref(false);
 const editingItemId = ref<string | null>(null);
+const savingItem = ref(false);
+const loadingEditEntries = ref(false);
+const editEntriesError = ref("");
+const editProjectSteps = ref<ProjectStep[]>([]);
+const editedEntrySteps = ref<Record<string, string>>({});
 const editItemForm = ref({
   service_id: "",
   description: "",
@@ -1196,7 +1296,7 @@ const itemsDisplayForTable = computed(() =>
       && item.description === getServiceName(item.service_id);
     return {
       stepId,
-      stepName: getStepName(stepId) || "Sans ?tape",
+      stepName: getStepName(stepId) || "Sans étape",
       description: legacyFallback ? "" : (item.description || "").trim(),
     };
   }),
@@ -1249,6 +1349,9 @@ const { pageLoading, pageError, reloadPage } = usePageLoad(async () => {
       // Fetch time entries for import functionality
       await timeEntryStore.fetchTimeEntries();
       if (timeEntryStore.error) throw new Error(timeEntryStore.error);
+      await timeEntryStore.fetchTimeEntriesByIds(
+        invoiceItems.value.flatMap((item) => item.time_entry_id ? [item.time_entry_id] : []),
+      );
       // Fetch project steps
       await projectStepStore.fetchSteps(invoice.value.project_id);
       if (projectStepStore.error) throw new Error(projectStepStore.error);
@@ -1295,6 +1398,10 @@ const generateInvoicePDF = async (): Promise<string> => {
   // otherwise leave layout artifacts in the canvas/PDF renderer.
   const pdfContent = invoiceContent.cloneNode(true) as HTMLElement;
   pdfContent.querySelectorAll(".no-print").forEach((element) => element.remove());
+  pdfContent.querySelectorAll<HTMLElement>(".invoice-step-header").forEach((element) => {
+    element.style.paddingTop = "16px";
+    element.style.paddingBottom = "16px";
+  });
   pdfContent.querySelectorAll<HTMLElement>(".print-only").forEach((element) => {
     element.style.display = "block";
   });
@@ -1439,6 +1546,7 @@ const saveChanges = async () => {
       });
     }
 
+    expandedItemIds.value = new Set();
     console.log("Invoice saved successfully");
     alert("Changements sauvegardés avec succès!");
   } catch (error) {
@@ -1483,10 +1591,20 @@ const closeCustomItemModal = () => {
 
 // Edit Item Modal functions
 const editingSourceIds = ref<string[]>([]);
+const editingTimeEntries = computed(() => {
+  const entryIds = new Set(invoiceItems.value
+    .filter((item) => editingSourceIds.value.includes(item.id))
+    .map((item) => item.time_entry_id));
+  return timeEntryStore.entries.filter((entry) => entryIds.has(entry.id));
+});
 
-const openEditModal = (item: InvoiceDisplayItem) => {
+const openEditModal = async (item: InvoiceDisplayItem) => {
+  if (loadingEditEntries.value || savingItem.value) return;
   editingItemId.value = item.id;
   editingSourceIds.value = [...item.sourceIds];
+  editedEntrySteps.value = Object.fromEntries(
+    editingTimeEntries.value.map((entry) => [entry.id, entry.step_id || ""]),
+  );
   const actualItem = item;
   editItemForm.value = {
     service_id: actualItem.service_id || "",
@@ -1496,21 +1614,56 @@ const openEditModal = (item: InvoiceDisplayItem) => {
     exempt_tax: actualItem.exempt_tax || false,
   };
   showEditItemModal.value = true;
+  loadingEditEntries.value = true;
+  editEntriesError.value = "";
+  editProjectSteps.value = [];
+  try {
+    const entryIds = invoiceItems.value
+      .filter((source) => item.sourceIds.includes(source.id))
+      .flatMap((source) => source.time_entry_id ? [source.time_entry_id] : []);
+    const entries = await timeEntryStore.fetchTimeEntriesByIds(entryIds);
+    if (entries.length !== new Set(entryIds).size) {
+      throw new Error("Une entrée de temps liée est introuvable.");
+    }
+    const projectIds = [...new Set(entries.map((entry) => entry.project_id))];
+    editProjectSteps.value = (await Promise.all(
+      projectIds.map((id) => SupabaseService.getProjectSteps(id)),
+    )).flat();
+    editedEntrySteps.value = Object.fromEntries(
+      entries.map((entry) => [entry.id, entry.step_id || ""]),
+    );
+  } catch {
+    editEntriesError.value = "Impossible de charger les entrées et leurs étapes. Fermez puis rouvrez cet article pour réessayer.";
+  } finally {
+    loadingEditEntries.value = false;
+  }
 };
 
 const closeEditModal = () => {
+  if (savingItem.value || loadingEditEntries.value) return;
   showEditItemModal.value = false;
   editingItemId.value = null;
   editingSourceIds.value = [];
+  editedEntrySteps.value = {};
 };
 
 const updateInvoiceItem = async () => {
+  if (savingItem.value || loadingEditEntries.value || editEntriesError.value) return;
   if (!editingItemId.value) {
     alert("Veuillez remplir tous les champs requis");
     return;
   }
 
+  savingItem.value = true;
   try {
+    const stepChanges = editingTimeEntries.value
+      .filter((entry) => (entry.step_id || "") !== editedEntrySteps.value[entry.id])
+      .map((entry) => ({ entry, stepId: editedEntrySteps.value[entry.id] || null }));
+    for (const { entry, stepId } of stepChanges) {
+      if (stepId && !editProjectSteps.value.some((step) => step.project_id === entry.project_id && step.id === stepId)) {
+        throw new Error("L'étape doit appartenir au projet de l'entrée de temps.");
+      }
+    }
     const siblingItems = invoiceItems.value.filter((item) =>
       editingSourceIds.value.includes(item.id),
     );
@@ -1543,15 +1696,23 @@ const updateInvoiceItem = async () => {
       }
     }
 
+    for (const { entry, stepId } of stepChanges) {
+      await timeEntryStore.updateTimeEntry(entry.id, { step_id: stepId });
+    }
+
     alert(
       siblingItems.length > 1
         ? `Article modifié — taux appliqué aux ${siblingItems.length} entrées du groupe.`
         : "Article modifié avec succès!",
     );
+    savingItem.value = false;
+    expandedItemIds.value = new Set();
     closeEditModal();
   } catch (error) {
     console.error("Erreur lors de la modification:", error);
     alert("Erreur lors de la modification de l'article");
+  } finally {
+    savingItem.value = false;
   }
 };
 
@@ -1921,7 +2082,7 @@ const submitEmailInvoice = async () => {
 
 .invoice-content {
   width: 8.5in;
-  height: 11in;
+  height: auto;
   margin: 0 !important;
 }
 .invoice-container {
@@ -2001,8 +2162,8 @@ const submitEmailInvoice = async () => {
     padding: 0.4in !important;
     background: white;
     width: 8.5in;
-    height: 11in;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
   }
 
   table {
@@ -2013,6 +2174,11 @@ const submitEmailInvoice = async () => {
   th,
   td {
     padding: 0.15em 0.25em;
+  }
+
+  .invoice-step-header {
+    padding-top: 16px;
+    padding-bottom: 16px;
   }
 
   .flex {
@@ -2053,11 +2219,8 @@ const submitEmailInvoice = async () => {
   }
 
   /* Footer styling for print */
-  .invoice-content > div:last-child {
-    position: absolute;
-    bottom: 0.3in;
-    left: 0;
-    right: 0;
+  .invoice-footer {
+    break-inside: avoid;
     width: 100%;
     margin: 0 !important;
     padding: 0.2in 0.4in !important;

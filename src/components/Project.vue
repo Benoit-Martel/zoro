@@ -108,8 +108,39 @@
             :key="step.id"
             class="bg-gray-50 p-2 rounded flex justify-between items-center"
           >
-            <div>
-              <p class="font-semibold text-sm text-gray-900">
+            <div class="min-w-0 flex-1">
+              <form
+                v-if="stepEdit?.id === step.id"
+                class="mb-2 space-y-2"
+                @submit.prevent="saveStepName"
+                @keydown.esc.prevent="cancelStepRename"
+              >
+                <label :for="`step-name-${step.id}`" class="sr-only">Nom de l'étape</label>
+                <input
+                  :id="`step-name-${step.id}`"
+                  v-model="stepEdit.name"
+                  type="text"
+                  required
+                  :disabled="stepEdit.saving"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:border-blue-600"
+                />
+                <p v-if="stepEdit.error" role="alert" class="text-sm text-red-600">
+                  {{ stepEdit.error }}
+                </p>
+                <div class="flex gap-3 text-sm">
+                  <button
+                    type="submit"
+                    :disabled="stepEdit.saving || !stepEdit.name.trim()"
+                    class="text-blue-600 font-semibold hover:text-blue-800 disabled:opacity-50"
+                  >
+                    {{ stepEdit.saving ? "Enregistrement…" : "Enregistrer" }}
+                  </button>
+                  <button type="button" :disabled="stepEdit.saving" class="text-gray-600 disabled:opacity-50" @click="cancelStepRename">
+                    Annuler
+                  </button>
+                </div>
+              </form>
+              <p v-else class="font-semibold text-sm text-gray-900 break-words">
                 {{ step.name }}
               </p>
               <p class="text-xs text-gray-600">
@@ -119,7 +150,24 @@
                 {{ getStepHours(step.id) }}h
               </p>
             </div>
-            <button @click="deleteStep(step.id)" class="text-red-600">✕</button>
+            <div class="flex items-center gap-3 ml-3">
+              <button
+                v-if="stepEdit?.id !== step.id"
+                type="button"
+                :disabled="stepEdit?.saving"
+                :aria-label="`Renommer l'étape ${step.name}`"
+                class="text-blue-600 hover:text-blue-800 text-sm font-semibold disabled:opacity-50"
+                @click="startStepRename(step)"
+              >
+                Renommer
+              </button>
+              <button
+                :disabled="stepEdit?.id === step.id"
+                :aria-label="`Supprimer l'étape ${step.name}`"
+                @click="deleteStep(step.id)"
+                class="text-red-600 disabled:opacity-50"
+              >✕</button>
+            </div>
           </div>
           <div
             v-if="projectSteps.length === 0"
@@ -182,7 +230,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
+import type { ProjectStep } from "../types";
 import { Clock, FileStack } from "lucide-vue-next";
 import { useProjectStepStore } from "../stores/projectStepStore";
 import { useClientStore } from "../stores/clientStore";
@@ -207,6 +256,42 @@ const projectStore = useProjectStore();
 const colorFormData = ref(props.project?.color || "#3B82F6");
 const hourlyRateFormData = ref(props.project?.hourly_rate || 0);
 const showAddStepModal = ref(false);
+const stepEdit = ref<{ id: string; name: string; saving: boolean; error: string } | null>(null);
+
+watch([() => props.project?.id, () => props.isOpen], () => {
+  stepEdit.value = null;
+});
+
+const startStepRename = async (step: ProjectStep) => {
+  stepEdit.value = { id: step.id, name: step.name, saving: false, error: "" };
+  await nextTick();
+  const input = document.getElementById(`step-name-${step.id}`) as HTMLInputElement | null;
+  input?.focus();
+  input?.select();
+};
+
+const cancelStepRename = () => {
+  if (!stepEdit.value?.saving) stepEdit.value = null;
+};
+
+const saveStepName = async () => {
+  const edit = stepEdit.value;
+  if (!edit || edit.saving) return;
+  const name = edit.name.trim();
+  if (!name) return;
+
+  edit.saving = true;
+  edit.error = "";
+  try {
+    await projectStepStore.updateStep(edit.id, { name });
+    if (stepEdit.value === edit) stepEdit.value = null;
+  } catch {
+    edit.error = "Impossible de renommer l'étape. Veuillez réessayer.";
+  } finally {
+    edit.saving = false;
+  }
+};
+
 const newStepData = ref({
   name: "",
   description: "",

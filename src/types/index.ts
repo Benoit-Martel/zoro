@@ -54,7 +54,7 @@ export interface Service {
 export interface TimeEntry {
   id: string;
   project_id: string;
-  step_id?: string;
+  step_id?: string | null;
   service_id?: string;
   date: string;
   hours: number;
