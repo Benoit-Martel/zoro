@@ -11,6 +11,8 @@ lerna-debug.log*
 *.env
 .upload
 
+.npm-cache/*
+
 node_modules
 .DS_Store
 dist
