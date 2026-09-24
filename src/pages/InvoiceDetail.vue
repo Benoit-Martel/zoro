@@ -58,7 +58,7 @@
     <div class="invoice-content bg-white p-10 max-w-4xl mx-auto my-8 relative">
       <!-- Header -->
       <div
-        class="flex justify-between items-center mb-8 pb-8 border-b-2 border-green-300"
+        class="invoice-heading flex justify-between items-center mb-8 pb-8 border-b-2 border-green-300"
       >
         <div>
           <h1 class="text-4xl font-bold text-gray-900">Facture</h1>
@@ -102,8 +102,8 @@
         </div>
       </div>
 
-      <!-- Client & Project Info (2-column) -->
-      <div class="grid grid-cols-2 gap-8 mb-6">
+      <!-- Billing, contact and sender information -->
+      <div class="invoice-addresses grid grid-cols-3 gap-5 mb-6">
         <!-- Bill To - Always Visible with Dropdowns -->
         <div class="space-y-0">
           <h3 class="text-sm font-bold text-gray-700 mb-2">Facturé à</h3>
@@ -147,26 +147,6 @@
             </select>
           </div>
 
-          <!-- Contact Dropdown -->
-          <div class="print-only" v-if="contact?.name">
-            <p class="text-gray-700 text-sm">
-              <span class="font-semibold">Contact:</span> {{ contact.name }}
-            </p>
-          </div>
-          <div class="no-print">
-            <select
-              v-model="selectedContactId"
-              @change="onContactChange"
-              :disabled="!selectedClientId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-full mb-2"
-            >
-              <option value="">-- Sélectionner un contact --</option>
-              <option v-for="c in availableContacts" :key="c.id" :value="c.id">
-                {{ c.name }}
-              </option>
-            </select>
-          </div>
-
           <!-- Client Details (Print only) -->
           <div class="print-only">
             <p v-if="client?.email" class="text-gray-600 text-sm">
@@ -184,6 +164,37 @@
               {{ client.postal_code || "" }}
             </p>
           </div>
+        </div>
+
+        <!-- Contact -->
+        <div>
+          <h3 class="text-sm font-bold text-gray-700 mb-2">Contact</h3>
+          <!-- Contact Dropdown -->
+          <div class="print-only" v-if="contact?.name">
+            <p class="text-gray-700 text-sm">
+              {{ contact.name }}
+            </p>
+          </div>
+          <div class="no-print">
+            <select
+              v-model="selectedContactId"
+              @change="onContactChange"
+              :disabled="!selectedClientId"
+              class="w-full px-3 py-2 border border-gray-300 rounded-full mb-2"
+            >
+              <option value="">-- Sélectionner un contact --</option>
+              <option v-for="c in availableContacts" :key="c.id" :value="c.id">
+                {{ c.name }}
+              </option>
+            </select>
+          </div>
+
+          <p v-if="contact?.email" class="text-gray-600 text-sm">
+            {{ contact.email }}
+          </p>
+          <p v-if="contact?.phone" class="text-gray-600 text-sm">
+            {{ contact.phone }}
+          </p>
         </div>
 
         <!-- From -->
@@ -951,7 +962,7 @@
               </template>
             </template>
           </tbody>
-          <tfoot>
+          <tfoot class="invoice-totals">
             <!-- Taxable Subtotal Row -->
             <tr class="border-t-2 border-gray-300">
               <td
@@ -1036,7 +1047,7 @@
       </div>
       <!-- Footer -->
       <div
-        class="invoice-footer border-t pt-8 text-center text-gray-600 text-sm w-full"
+        class="invoice-footer pt-4 text-center text-gray-600 text-sm w-full"
       >
         <p>Merci de votre confiance!</p>
       </div>
@@ -1397,11 +1408,8 @@ const generateInvoicePDF = async (): Promise<string> => {
   // Export a separate copy without action cells. Hidden table cells can
   // otherwise leave layout artifacts in the canvas/PDF renderer.
   const pdfContent = invoiceContent.cloneNode(true) as HTMLElement;
+  pdfContent.classList.add("invoice-pdf");
   pdfContent.querySelectorAll(".no-print").forEach((element) => element.remove());
-  pdfContent.querySelectorAll<HTMLElement>(".invoice-step-header").forEach((element) => {
-    element.style.paddingTop = "16px";
-    element.style.paddingBottom = "16px";
-  });
   pdfContent.querySelectorAll<HTMLElement>(".print-only").forEach((element) => {
     element.style.display = "block";
   });
@@ -2072,6 +2080,51 @@ const submitEmailInvoice = async () => {
   font-size: 0.75rem;
 }
 
+.invoice-content .invoice-totals td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  line-height: 1.3;
+}
+
+.invoice-addresses > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Compact the exported header without changing the editable invoice layout. */
+.invoice-pdf .invoice-heading {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+
+.invoice-pdf .invoice-heading h1 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.invoice-pdf .invoice-addresses {
+  gap: 20px;
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
+
+.invoice-pdf .invoice-addresses h3 {
+  margin-bottom: 4px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.invoice-pdf .invoice-heading p,
+.invoice-pdf .invoice-addresses p {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.invoice-pdf .invoice-step-header {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
 .print-only {
   display: none;
 }
@@ -2177,8 +2230,8 @@ const submitEmailInvoice = async () => {
   }
 
   .invoice-step-header {
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 
   .flex {
@@ -2216,6 +2269,10 @@ const submitEmailInvoice = async () => {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem !important;
+  }
+
+  .invoice-addresses {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   /* Footer styling for print */
